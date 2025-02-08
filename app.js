@@ -40,7 +40,7 @@ const scanResultP = document.getElementById("scan-result");
 let html5QrcodeScanner; // Variable para el objeto del lector QR
 
 // Nombre de la empresa (debe coincidir con el texto que contenga el código QR)
-const COMPANY_NAME = "JM Asociados";
+const COMPANY_NAME = "J.M Asociados";
 
 // === MOSTRAR/OCULTAR SECCIONES DE AUTENTICACIÓN ===
 showRegisterLink.addEventListener("click", (e) => {
