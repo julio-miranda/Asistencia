@@ -1,0 +1,68 @@
+/* Estilos básicos para un diseño profesional y responsivo */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f2f2f2;
+    margin: 0;
+    padding: 20px;
+    color: #333;
+}
+
+h2,
+h3 {
+    color: #333;
+}
+
+form {
+    margin-bottom: 20px;
+}
+
+input,
+select,
+button {
+    padding: 10px;
+    margin: 5px 0;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1em;
+}
+
+button {
+    background-color: #007BFF;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+#attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+#attendance-table th,
+#attendance-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+}
+
+#attendance-table th {
+    background-color: #007BFF;
+    color: white;
+}
+
+#auth-container,
+#employee-dashboard,
+#admin-dashboard {
+    background: white;
+    padding: 20px;
+    max-width: 500px;
+    margin: auto;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
