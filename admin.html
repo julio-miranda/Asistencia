@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <title>Módulo Administrador - Control de Asistencia</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ccc;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+        }
+    </style>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+
+<body>
+    <h1>Módulo Administrador</h1>
+    <button id="logoutBtn">Cerrar Sesión</button>
+    <table id="attendanceTable">
+        <thead>
+            <tr>
+                <th>Correo</th>
+                <th>Fecha</th>
+                <th>Llegada</th>
+                <th>Tipo de Llegada</th>
+                <th>Salida</th>
+                <th>Tipo de Salida</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Se rellenará dinámicamente -->
+        </tbody>
+    </table>
+
+    <script>
+        // 1. CONFIGURACIÓN DE FIREBASE – reemplaza estos datos por los de tu proyecto
+        const firebaseConfig = {
+            apiKey: "AIzaSyD5AzdqX-y7RLIpInc-Rqh12eCdbkyUHK4",
+            authDomain: "asistencia-jm-asociados.firebaseapp.com",
+            projectId: "asistencia-jm-asociados",
+            storageBucket: "asistencia-jm-asociados.firebasestorage.app",
+            messagingSenderId: "167727595796",
+            appId: "1:167727595796:web:21ef39c8e9986a7ecf8201",
+            measurementId: "G-2J5SJF1L2S"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // 2. Verificar autenticación y que el usuario sea administrador
+        auth.onAuthStateChanged(async user => {
+            if (user) {
+                const doc = await db.collection("users").doc(user.uid).get();
+                if (doc.exists && doc.data().role === "admin") {
+                    loadAttendance();
+                } else {
+                    alert("No tienes permisos para acceder a este módulo.");
+                    window.location.href = "index.html";
+                }
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        // 3. Función para cargar y mostrar los registros de asistencia en la tabla
+        async function loadAttendance() {
+            const tbody = document.querySelector("#attendanceTable tbody");
+            const snapshot = await db.collection("attendances").get();
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+              <td>${data.email || ""}</td>
+              <td>${data.date || ""}</td>
+              <td>${data.arrivalTime || ""}</td>
+              <td>${data.arrivalType || ""}</td>
+              <td>${data.departureTime || "No registrado"}</td>
+              <td>${data.departureType || ""}</td>
+          `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 4. Cerrar sesión
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+            auth.signOut().then(() => window.location.href = "index.html");
+        });
+    </script>
+</body>
+
+</html>

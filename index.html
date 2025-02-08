@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control de Asistencia</title>
+  <!-- Vincular el CSS -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Firebase (versión compat para facilitar el ejemplo) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <!-- Biblioteca para escanear QR -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+  <!-- Sección de autenticación (login y registro) -->
+  <div id="auth-container">
+    <h2>Iniciar sesión</h2>
+    <form id="login-form">
+      <input type="email" id="login-email" placeholder="Email" required>
+      <input type="password" id="login-password" placeholder="Contraseña" required>
+      <button type="submit">Iniciar sesión</button>
+    </form>
+    <p>¿No tienes cuenta? <a href="#" id="show-register">Regístrate aquí</a></p>
+    
+    <div id="register-section" style="display:none;">
+      <h2>Registro</h2>
+      <form id="register-form">
+        <input type="email" id="register-email" placeholder="Email" required>
+        <input type="password" id="register-password" placeholder="Contraseña" required>
+        <!-- Selección de rol: empleado o administrador -->
+        <select id="register-role" required>
+          <option value="employee">Empleado</option>
+          <option value="admin">Administrador</option>
+        </select>
+        <button type="submit">Registrarse</button>
+      </form>
+      <p>¿Ya tienes cuenta? <a href="#" id="show-login">Inicia sesión</a></p>
+    </div>
+  </div>
+  
+  <!-- Módulo para empleados: escaneo de QR -->
+  <div id="employee-dashboard" style="display:none;">
+    <h2>Módulo de Empleados</h2>
+    <p>Bienvenido, <span id="user-email"></span></p>
+    <button id="logout-button">Cerrar sesión</button>
+    <div id="qr-reader" style="width:500px; margin-top:20px;"></div>
+    <p id="scan-result"></p>
+  </div>
+  
+  <!-- Módulo para administrador: tabla con registros -->
+  <div id="admin-dashboard" style="display:none;">
+    <h2>Módulo de Administrador</h2>
+    <p>Bienvenido, <span id="admin-email"></span></p>
+    <button id="logout-button-admin">Cerrar sesión</button>
+    <h3>Registro de Asistencia</h3>
+    <table id="attendance-table">
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Fecha</th>
+          <th>Hora de llegada</th>
+          <th>Llegada</th>
+          <th>Hora de salida</th>
+          <th>Salida</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Aquí se cargarán los registros -->
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Archivo JavaScript de la aplicación -->
+  <script src="app.js"></script>
+</body>
+</html>
