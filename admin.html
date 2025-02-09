@@ -1,28 +1,67 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Módulo Administrador - Control de Asistencia</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <!-- Configuración y funciones comunes -->
-  <script src="js/firebase-config.js"></script>
-  <script src="js/auth.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Panel de Administración</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/auth.js"></script>
 </head>
+
 <body>
-  <div class="section">
-    <h2>Módulo Administrador</h2>
-    <div class="admin-menu">
-      <button id="view-attendance">Ver Asistencias</button>
-      <button id="manage-employees">Administrar Empleados</button>
-      <button id="logout-button-admin">Cerrar Sesión</button>
+
+    <nav>
+        <ul>
+            <li><a href="#" onclick="mostrarTabla('empleados')">Empleados</a></li>
+            <li><a href="#" onclick="mostrarTabla('asistencias')">Asistencias</a></li>
+            <li><button id="logout-button">Cerrar Sesión</button></li>
+        </ul>
+    </nav>
+
+    <div id="tabla-empleados" class="tabla-container">
+        <h2>Gestión de Empleados</h2>
+        <button onclick="agregarEmpleado()">Agregar Empleado</button>
+        <table id="empleadosTable" class="display nowrap" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Identidad</th>
+                    <th>Nacimiento</th>
+                    <th>Email</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
-    <div id="admin-content"></div>
-  </div>
-  <script src="js/admin.js"></script>
+
+    <div id="tabla-asistencias" class="tabla-container" style="display: none;">
+        <h2>Control de Asistencias</h2>
+        <table id="asistenciasTable" class="display nowrap" style="width:100%">
+            <thead>
+                <tr>
+                    <th>Empleado</th>
+                    <th>Fecha</th>
+                    <th>Hora Entrada</th>
+                    <th>Estado Entrada</th>
+                    <th>Hora Salida</th>
+                    <th>Estado Salida</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="js/admin.js"></script>
 </body>
+
 </html>
