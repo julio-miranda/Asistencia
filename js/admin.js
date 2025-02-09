@@ -11,7 +11,23 @@ function mostrarTabla(tabla) {
 async function cargarEmpleados() {
     const empleadosTable = $("#empleadosTable").DataTable({
         scrollX: true,
-        destroy: true
+        destroy: true,
+        "paging": true,
+        "searching": true,
+        "ordering": true,
+        "language": {
+            "lengthMenu": "Mostrar _MENU_ registros",
+            "zeroRecords": "No se encontraron resultados",
+            "info": "Mostrando _START_ a _END_ de _TOTAL_ productos",
+            "infoFiltered": "(filtrado de _MAX_ total)",
+            "search": "Buscar:",
+            paginate: {
+                first: "Primero",
+                last: "Último",
+                next: "Siguiente",
+                previous: "Anterior"
+            }
+        }
     });
 
     const empleados = await db.collection("usuarios").get();
@@ -55,7 +71,24 @@ async function eliminarEmpleado(id) {
 
 async function cargarAsistencias() {
     const asistenciasTable = $("#asistenciasTable").DataTable({
-        destroy: true
+        scrollX: true,
+        destroy: true,
+        "paging": true,
+        "searching": true,
+        "ordering": true,
+        "language": {
+            "lengthMenu": "Mostrar _MENU_ registros",
+            "zeroRecords": "No se encontraron resultados",
+            "info": "Mostrando _START_ a _END_ de _TOTAL_ productos",
+            "infoFiltered": "(filtrado de _MAX_ total)",
+            "search": "Buscar:",
+            paginate: {
+                first: "Primero",
+                last: "Último",
+                next: "Siguiente",
+                previous: "Anterior"
+            }
+        }
     });
 
     const asistencias = await db.collection("asistencias").get();
