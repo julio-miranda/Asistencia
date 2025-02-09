@@ -1,142 +1,73 @@
-/* General */
+/* styles.css */
 body {
     font-family: Arial, sans-serif;
-    background-color: #f2f2f2;
+    background: #f2f2f2;
     margin: 0;
-    padding: 20px;
-    color: #333;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+    padding: 0;
 }
 
-/* Contenedores principales */
-.container {
-    background: white;
+.section {
+    max-width: 400px;
+    margin: 50px auto;
     padding: 20px;
-    max-width: 500px;
-    width: 90%;
-    border-radius: 8px;
+    background: #fff;
+    border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    text-align: center;
 }
 
-/* Títulos */
-h2,
-h3 {
-    color: #007BFF;
+h2 {
     text-align: center;
+    color: #333;
 }
 
-/* Formularios */
 form {
     display: flex;
     flex-direction: column;
-    gap: 10px;
 }
 
 input,
-select,
-button {
+select {
+    margin: 10px 0;
     padding: 10px;
-    margin: 5px 0;
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 1em;
-    border-radius: 5px;
-    border: 1px solid #ddd;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 3px;
 }
 
 button {
-    background-color: #007BFF;
-    color: white;
+    padding: 10px;
+    background: #007BFF;
+    color: #fff;
+    font-size: 1rem;
     border: none;
+    border-radius: 3px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    margin-top: 10px;
 }
 
 button:hover {
-    background-color: #0056b3;
+    background: #0056b3;
 }
 
-/* Links */
-a {
-    color: #007BFF;
-    text-decoration: none;
+.admin-menu {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
 }
 
-a:hover {
-    text-decoration: underline;
-}
-
-/* QR Scanner */
-#qr-reader {
-    width: 100%;
-    max-width: 400px;
-    margin: auto;
-}
-
-/* Tabla de Asistencia */
-#attendance-table {
+table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 20px;
-    font-size: 14px;
-    text-align: center;
 }
 
-#attendance-table th,
-#attendance-table td {
-    border: 1px solid #ddd;
+table,
+th,
+td {
+    border: 1px solid #ccc;
+}
+
+th,
+td {
     padding: 8px;
-}
-
-#attendance-table th {
-    background-color: #007BFF;
-    color: white;
-}
-
-/* Secciones ocultas por defecto */
-#register-section,
-#employee-dashboard,
-#admin-dashboard {
-    display: none;
-}
-
-/* 🔹 Responsive Design 🔹 */
-@media (max-width: 768px) {
-    .container {
-        max-width: 95%;
-        padding: 15px;
-    }
-
-    input,
-    select,
-    button {
-        font-size: 0.9em;
-    }
-
-    #attendance-table {
-        font-size: 12px;
-    }
-}
-
-@media (max-width: 480px) {
-
-    h2,
-    h3 {
-        font-size: 1.3em;
-    }
-
-    button {
-        font-size: 0.9em;
-        padding: 8px;
-    }
-
-    #attendance-table th,
-    #attendance-table td {
-        padding: 6px;
-        font-size: 10px;
-    }
+    text-align: center;
 }

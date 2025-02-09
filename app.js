@@ -13,246 +13,308 @@ const firebaseConfig = {
     // ... otros parámetros según tu configuración
 };
 
-// Inicializar Firebase
+// Inicializa Firebase
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// === REFERENCIAS A ELEMENTOS DEL DOM ===
-const authContainer = document.getElementById("auth-container");
-const loginForm = document.getElementById("login-form");
-const registerForm = document.getElementById("register-form");
-const showRegisterLink = document.getElementById("show-register");
-const showLoginLink = document.getElementById("show-login");
-const registerSection = document.getElementById("register-section");
+// 2. Referencias a elementos HTML
+const loginSection = document.getElementById('login-section');
+const registerSection = document.getElementById('register-section');
+const employeeModule = document.getElementById('employee-module');
+const adminModule = document.getElementById('admin-module');
+const adminContent = document.getElementById('admin-content');
 
-const employeeDashboard = document.getElementById("employee-dashboard");
-const adminDashboard = document.getElementById("admin-dashboard");
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
 
-const userEmailSpan = document.getElementById("user-email");
-const adminEmailSpan = document.getElementById("admin-email");
+const goToRegisterLink = document.getElementById('go-to-register');
+const goToLoginLink = document.getElementById('go-to-login');
 
-const logoutButton = document.getElementById("logout-button");
-const logoutButtonAdmin = document.getElementById("logout-button-admin");
+const scanQRButton = document.getElementById('scan-qr-button');
+const qrResultDiv = document.getElementById('qr-result');
 
-const scanResultP = document.getElementById("scan-result");
+const logoutButton = document.getElementById('logout-button');
+const logoutButtonAdmin = document.getElementById('logout-button-admin');
 
-let html5QrcodeScanner; // Variable para el objeto del lector QR
+const viewAttendanceBtn = document.getElementById('view-attendance');
+const manageEmployeesBtn = document.getElementById('manage-employees');
 
-// Nombre de la empresa (debe coincidir con el texto que contenga el código QR)
-const COMPANY_NAME = "J.M Asociados";
-
-// === MOSTRAR/OCULTAR SECCIONES DE AUTENTICACIÓN ===
-showRegisterLink.addEventListener("click", (e) => {
+// 3. Navegación entre secciones
+goToRegisterLink.addEventListener('click', e => {
     e.preventDefault();
+    loginSection.style.display = "none";
     registerSection.style.display = "block";
-    loginForm.style.display = "none";
 });
 
-showLoginLink.addEventListener("click", (e) => {
+goToLoginLink.addEventListener('click', e => {
     e.preventDefault();
     registerSection.style.display = "none";
-    loginForm.style.display = "block";
+    loginSection.style.display = "block";
 });
 
-// === REGISTRO DE USUARIO ===
-registerForm.addEventListener("submit", async (e) => {
+// 4. Registro de Usuarios
+registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById("register-email").value;
-    const password = document.getElementById("register-password").value;
-    const role = document.getElementById("register-role").value; // "employee" o "admin"
+    const email = document.getElementById('register-email').value;
+    const pass = document.getElementById('register-password').value;
+    const pass2 = document.getElementById('register-password2').value;
+    const role = document.getElementById('register-role').value;
+
+    if (pass !== pass2) {
+        alert("Las contraseñas no coinciden");
+        return;
+    }
 
     try {
+        // Si se selecciona admin, verificamos que no exista ya uno
         if (role === "admin") {
-            // Verificar que no exista ya un administrador
-            const adminQuery = await db.collection("users").where("role", "==", "admin").get();
+            const adminQuery = await db.collection("usuarios").where("role", "==", "admin").get();
             if (!adminQuery.empty) {
                 alert("Ya existe un administrador registrado.");
                 return;
             }
         }
 
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
         const user = userCredential.user;
-        // Guardar información adicional en Firestore
-        await db.collection("users").doc(user.uid).set({
+
+        // Guarda datos del usuario en Firestore
+        await db.collection("usuarios").doc(user.uid).set({
             email: email,
             role: role
         });
+
         alert("Registro exitoso");
+        registerForm.reset();
+        registerSection.style.display = "none";
+        loginSection.style.display = "block";
     } catch (error) {
-        console.error("Error en el registro:", error);
-        alert("Error en el registro: " + error.message);
+        console.error("Error en registro:", error);
+        alert(error.message);
     }
 });
 
-// === INICIO DE SESIÓN ===
-loginForm.addEventListener("submit", async (e) => {
+// 5. Login de Usuarios
+loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById("login-email").value;
-    const password = document.getElementById("login-password").value;
+    const email = document.getElementById('login-email').value;
+    const pass = document.getElementById('login-password').value;
+
     try {
-        await auth.signInWithEmailAndPassword(email, password);
+        const userCredential = await auth.signInWithEmailAndPassword(email, pass);
+        // Una vez autenticado, se redirige según el rol del usuario
+        verificarRol(userCredential.user);
+        loginForm.reset();
     } catch (error) {
-        console.error("Error en el inicio de sesión:", error);
-        alert("Error en el inicio de sesión: " + error.message);
+        console.error("Error en login:", error);
+        alert(error.message);
     }
 });
 
-// === ESCUCHAR CAMBIOS DE AUTENTICACIÓN ===
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        // Recuperar el rol del usuario desde Firestore
-        const userDoc = await db.collection("users").doc(user.uid).get();
-        const userData = userDoc.data();
-        authContainer.style.display = "none";
-        if (userData.role === "admin") {
-            adminDashboard.style.display = "block";
-            adminEmailSpan.textContent = user.email;
-            loadAttendanceRecords();
-        } else {
-            employeeDashboard.style.display = "block";
-            userEmailSpan.textContent = user.email;
-            startQRScanner();
-        }
-    } else {
-        // Usuario desconectado: mostrar formulario de autenticación
-        authContainer.style.display = "block";
-        employeeDashboard.style.display = "none";
-        adminDashboard.style.display = "none";
-        if (html5QrcodeScanner) {
-            html5QrcodeScanner.clear();
-        }
-    }
-});
-
-// === FUNCIONES DE CERRAR SESIÓN ===
-logoutButton.addEventListener("click", () => {
-    auth.signOut();
-});
-
-logoutButtonAdmin.addEventListener("click", () => {
-    auth.signOut();
-});
-
-// === FUNCIONES PARA EL ESCANEO DEL CÓDIGO QR ===
-function startQRScanner() {
-    const qrReaderElementId = "qr-reader";
-    html5QrcodeScanner = new Html5Qrcode(qrReaderElementId);
-    const config = { fps: 10, qrbox: 250 };
-
-    html5QrcodeScanner.start(
-        { facingMode: "environment" },
-        config,
-        qrCodeSuccessCallback
-    ).catch((err) => {
-        console.error("Error iniciando el escáner QR:", err);
-    });
-}
-
-// Esta función se ejecuta cuando se detecta un código QR correctamente
-function qrCodeSuccessCallback(decodedText, decodedResult) {
-    console.log(`Código QR escaneado: ${decodedText}`);
-    // Detener el escaneo para procesar el dato
-    html5QrcodeScanner.stop().then(() => {
-        processQR(decodedText);
-    }).catch((err) => {
-        console.error("Error al detener el escáner:", err);
-    });
-}
-
-// Procesar el código QR escaneado y registrar la asistencia
-async function processQR(scannedText) {
-    if (scannedText !== COMPANY_NAME) {
-        alert("Código QR inválido.");
-        startQRScanner();
-        return;
-    }
-
-    // Obtener fecha y hora actuales
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentTimeStr = now.toLocaleTimeString();
-    const dateStr = now.toISOString().split('T')[0]; // Formato: YYYY-MM-DD
-
-    const user = auth.currentUser;
-    if (!user) {
-        alert("No hay usuario autenticado.");
-        return;
-    }
-
-    // Se usará un documento único por usuario y día: uid_fecha
-    const attendanceRef = db.collection("attendance").doc(user.uid + "_" + dateStr);
-    const attendanceDoc = await attendanceRef.get();
-
-    if (!attendanceDoc.exists) {
-        // Primer escaneo del día: registro de llegada
-        let llegada = "";
-        if (currentHour < 8) {
-            llegada = "Llegó temprano";
-        } else if (currentHour >= 8 && currentHour <= 16) {
-            llegada = "Llegó tarde";
-        } else {
-            llegada = "Hora de llegada fuera de rango";
-        }
-        await attendanceRef.set({
-            userId: user.uid,
-            email: user.email,
-            date: dateStr,
-            arrivalTime: currentTimeStr,
-            llegada: llegada,
-            exitTime: null,
-            salida: null
-        });
-        scanResultP.textContent = `Registro de llegada: ${llegada} a las ${currentTimeStr}`;
-    } else {
-        // Segundo escaneo del día: registro de salida (si no se ha registrado aún)
-        const data = attendanceDoc.data();
-        if (data.exitTime) {
-            alert("Ya se registró la salida para hoy.");
-            startQRScanner();
-            return;
-        }
-        let salida = "";
-        if (currentHour >= 8 && currentHour <= 16) {
-            salida = "Salió";
-        } else {
-            salida = "Salió temprano";
-        }
-        await attendanceRef.update({
-            exitTime: currentTimeStr,
-            salida: salida
-        });
-        scanResultP.textContent = `Registro de salida: ${salida} a las ${currentTimeStr}`;
-    }
-    // Reiniciar el escáner después de unos segundos para el próximo uso
-    setTimeout(() => {
-        startQRScanner();
-    }, 3000);
-}
-
-// === FUNCIONES PARA EL MÓDULO DE ADMINISTRADOR ===
-// Cargar y mostrar en una tabla los registros de asistencia
-async function loadAttendanceRecords() {
-    const tableBody = document.querySelector("#attendance-table tbody");
-    tableBody.innerHTML = ""; // Limpiar registros previos
-
+// 6. Verificar rol del usuario autenticado
+async function verificarRol(user) {
     try {
-        const attendanceSnapshot = await db.collection("attendance").orderBy("date", "desc").get();
-        attendanceSnapshot.forEach(doc => {
+        const doc = await db.collection("usuarios").doc(user.uid).get();
+        if (doc.exists) {
             const data = doc.data();
-            const row = document.createElement("tr");
-            row.innerHTML = `
-          <td>${data.email || ""}</td>
-          <td>${data.date || ""}</td>
-          <td>${data.arrivalTime || ""}</td>
-          <td>${data.llegada || ""}</td>
-          <td>${data.exitTime || ""}</td>
-          <td>${data.salida || ""}</td>
-        `;
-            tableBody.appendChild(row);
-        });
+            if (data.role === "admin") {
+                mostrarAdminModule();
+            } else {
+                mostrarEmployeeModule();
+            }
+        } else {
+            alert("No se encontraron datos del usuario.");
+        }
     } catch (error) {
-        console.error("Error cargando registros de asistencia:", error);
+        console.error("Error al verificar rol:", error);
     }
 }
+
+// 7. Mostrar módulos según el rol
+function mostrarEmployeeModule() {
+    loginSection.style.display = "none";
+    registerSection.style.display = "none";
+    adminModule.style.display = "none";
+    employeeModule.style.display = "block";
+}
+
+function mostrarAdminModule() {
+    loginSection.style.display = "none";
+    registerSection.style.display = "none";
+    employeeModule.style.display = "none";
+    adminModule.style.display = "block";
+    // Por defecto, se puede mostrar las asistencias:
+    cargarAsistencias();
+}
+
+// 8. Función para “escanear” el QR (simulación)
+scanQRButton.addEventListener('click', async () => {
+    // En una implementación real, aquí se integraría un lector de QR.
+    // Para efectos de este ejemplo se usa prompt() para simular el escaneo.
+    const scannedText = prompt("Simula el escaneo del QR. Ingresa el texto del QR:");
+    if (scannedText !== "J.M Asociados") {
+        alert("QR incorrecto.");
+        return;
+    }
+    // Si es el QR correcto, se procede a registrar la asistencia
+    registrarAsistencia();
+});
+
+// 9. Registrar asistencia en Firestore
+async function registrarAsistencia() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const now = new Date();
+    const hora = now.getHours();
+    const minutos = now.getMinutes();
+    // Formateamos la fecha en formato YYYY-MM-DD para agrupar por día
+    const fechaHoy = now.toISOString().split("T")[0];
+
+    try {
+        // Se busca si ya existe un registro de asistencia para hoy
+        const asistenciaRef = db.collection("asistencias")
+            .where("userId", "==", user.uid)
+            .where("fecha", "==", fechaHoy);
+        const snapshot = await asistenciaRef.get();
+
+        if (snapshot.empty) {
+            // Primera vez: registro de entrada
+            let entradaStatus = "";
+            if (hora < 8) {
+                entradaStatus = "Llegada temprana";
+            } else if (hora >= 8 && hora < 16) {
+                entradaStatus = "Llegada tarde";
+            } else {
+                entradaStatus = "Hora de entrada fuera de horario";
+            }
+
+            await db.collection("asistencias").add({
+                userId: user.uid,
+                fecha: fechaHoy,
+                entradaTime: now.toLocaleTimeString(),
+                entradaStatus: entradaStatus,
+                // Se deja la salida en null hasta que se registre
+                salidaTime: null,
+                salidaStatus: null
+            });
+            qrResultDiv.innerHTML = `<p>Entrada registrada a las ${now.toLocaleTimeString()} (${entradaStatus})</p>`;
+        } else {
+            // Ya existe registro para hoy; se asume que es el escaneo de salida
+            // Solo se registra salida si aún no se registró
+            let docAsistencia = null;
+            snapshot.forEach(doc => {
+                if (!doc.data().salidaTime) {
+                    docAsistencia = doc;
+                }
+            });
+            if (docAsistencia) {
+                let salidaStatus = "";
+                if (hora < 16) {
+                    salidaStatus = "Salida temprana";
+                } else {
+                    salidaStatus = "Salida";
+                }
+                await docAsistencia.ref.update({
+                    salidaTime: now.toLocaleTimeString(),
+                    salidaStatus: salidaStatus
+                });
+                qrResultDiv.innerHTML = `<p>Salida registrada a las ${now.toLocaleTimeString()} (${salidaStatus})</p>`;
+            } else {
+                alert("Ya se registró la entrada y salida para hoy.");
+            }
+        }
+    } catch (error) {
+        console.error("Error al registrar asistencia:", error);
+    }
+}
+
+// 10. Cerrar sesión
+logoutButton.addEventListener('click', async () => {
+    await auth.signOut();
+    location.reload();
+});
+logoutButtonAdmin.addEventListener('click', async () => {
+    await auth.signOut();
+    location.reload();
+});
+
+// 11. Módulo de administrador: Ver asistencias y administrar empleados
+
+// a) Cargar y mostrar asistencias en una tabla
+async function cargarAsistencias() {
+    try {
+        const snapshot = await db.collection("asistencias").orderBy("fecha", "desc").get();
+        let html = "<h3>Historial de Asistencias</h3>";
+        html += `<table>
+        <tr>
+          <th>Empleado</th>
+          <th>Fecha</th>
+          <th>Entrada</th>
+          <th>Estado Entrada</th>
+          <th>Salida</th>
+          <th>Estado Salida</th>
+        </tr>`;
+        for (const doc of snapshot.docs) {
+            const data = doc.data();
+            // Obtener el email del empleado consultando la colección "usuarios"
+            let userDoc = await db.collection("usuarios").doc(data.userId).get();
+            const email = userDoc.exists ? userDoc.data().email : "Desconocido";
+
+            html += `<tr>
+          <td>${email}</td>
+          <td>${data.fecha}</td>
+          <td>${data.entradaTime || "-"}</td>
+          <td>${data.entradaStatus || "-"}</td>
+          <td>${data.salidaTime || "-"}</td>
+          <td>${data.salidaStatus || "-"}</td>
+        </tr>`;
+        }
+        html += "</table>";
+        adminContent.innerHTML = html;
+    } catch (error) {
+        console.error("Error al cargar asistencias:", error);
+    }
+}
+
+// b) Administrar empleados: mostrar listado
+async function cargarEmpleados() {
+    try {
+        const snapshot = await db.collection("usuarios").get();
+        let html = "<h3>Listado de Empleados</h3>";
+        html += `<table>
+        <tr>
+          <th>Correo</th>
+          <th>Rol</th>
+        </tr>`;
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            html += `<tr>
+          <td>${data.email}</td>
+          <td>${data.role}</td>
+        </tr>`;
+        });
+        html += "</table>";
+        adminContent.innerHTML = html;
+    } catch (error) {
+        console.error("Error al cargar empleados:", error);
+    }
+}
+
+// Eventos para botones del administrador
+viewAttendanceBtn.addEventListener('click', cargarAsistencias);
+manageEmployeesBtn.addEventListener('click', cargarEmpleados);
+
+// 12. Estado de autenticación: si el usuario ya está logueado, se muestra su módulo
+auth.onAuthStateChanged(user => {
+    if (user) {
+        verificarRol(user);
+    } else {
+        // No hay usuario autenticado
+        loginSection.style.display = "block";
+        registerSection.style.display = "none";
+        employeeModule.style.display = "none";
+        adminModule.style.display = "none";
+    }
+});  
