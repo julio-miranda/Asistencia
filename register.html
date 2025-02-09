@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro - Control de Asistencia</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <!-- Configuración y funciones comunes -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/auth.js"></script>
+</head>
+<body>
+  <div class="section">
+    <h2>Registro</h2>
+    <form id="register-form">
+      <input type="email" id="register-email" placeholder="Correo" required>
+      <input type="password" id="register-password" placeholder="Contraseña" required>
+      <input type="password" id="register-password2" placeholder="Confirmar Contraseña" required>
+      <label for="register-role">Rol:</label>
+      <select id="register-role">
+        <option value="empleado">Empleado</option>
+        <option value="admin">Administrador</option>
+      </select>
+      <button type="submit">Registrarse</button>
+    </form>
+    <p>¿Ya tienes cuenta? <a href="#" id="go-to-login">Inicia Sesión</a></p>
+  </div>
+  <script src="js/register.js"></script>
+</body>
+</html>
