@@ -3,7 +3,7 @@
 checkUserAuth(async function (user) {
     const role = await getUserRole(user);
     if (role !== "empleado") {
-        window.location.href = "login.html";
+        window.location.href = "index.html";
         return;
     }
 });
