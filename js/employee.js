@@ -59,9 +59,9 @@ async function registrarAsistencia() {
             } else {
                 entradaStatus = "Hora de entrada fuera de horario";
             }
-
+            const empleado = await db.collection("usuarios").where("email","=",user.email).get();
             await db.collection("asistencias").add({
-                userId: user.uid,
+                user: empleado.nombre,
                 fecha: fechaHoy,
                 entradaTime: now.toLocaleTimeString(),
                 entradaStatus: entradaStatus,

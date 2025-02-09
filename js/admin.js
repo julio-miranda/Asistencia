@@ -1,3 +1,5 @@
+const user = firebase.auth().currentUser; // Tomas el usuario
+
 $(document).ready(function () {
     cargarEmpleados();
     cargarAsistencias();
