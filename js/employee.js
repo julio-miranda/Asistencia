@@ -94,6 +94,13 @@ async function registrarAsistencia() {
 }
 
 // Evento para cerrar sesión
-document.getElementById("logout-button").addEventListener("click", function () {
-    logout();
+document.addEventListener("DOMContentLoaded", function() {
+    const logoutButton = document.getElementById("logout-button");
+    if (logoutButton) {
+        logoutButton.addEventListener("click", function() {
+            logout();
+        });
+    } else {
+        console.error("El botón de cerrar sesión no se encontró en el DOM.");
+    }
 });
