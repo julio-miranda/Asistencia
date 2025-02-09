@@ -1,72 +1,86 @@
-// js/admin.js
-// Verifica que el usuario esté autenticado y tenga rol "admin"
-checkUserAuth(async function (user) {
-    const role = await getUserRole(user);
-    if (role !== "admin") {
-        window.location.href = "index.html";
-        return;
-    }
+$(document).ready(function () {
+    cargarEmpleados();
+    cargarAsistencias();
 });
 
-document.getElementById("logout-button-admin").addEventListener("click", function () {
-    logout();
-});
-
-document.getElementById("view-attendance").addEventListener("click", cargarAsistencias);
-document.getElementById("manage-employees").addEventListener("click", cargarEmpleados);
-
-async function cargarAsistencias() {
-    try {
-        const snapshot = await db.collection("asistencias").orderBy("fecha", "desc").get();
-        let html = "<h3>Historial de Asistencias</h3>";
-        html += `<table>
-        <tr>
-          <th>Empleado</th>
-          <th>Fecha</th>
-          <th>Entrada</th>
-          <th>Estado Entrada</th>
-          <th>Salida</th>
-          <th>Estado Salida</th>
-        </tr>`;
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
-            const userDoc = await db.collection("usuarios").doc(data.userId).get();
-            const email = userDoc.exists ? userDoc.data().email : "Desconocido";
-            html += `<tr>
-          <td>${email}</td>
-          <td>${data.fecha}</td>
-          <td>${data.entradaTime || "-"}</td>
-          <td>${data.entradaStatus || "-"}</td>
-          <td>${data.salidaTime || "-"}</td>
-          <td>${data.salidaStatus || "-"}</td>
-        </tr>`;
-        }
-        html += "</table>";
-        document.getElementById("admin-content").innerHTML = html;
-    } catch (error) {
-        console.error("Error al cargar asistencias:", error);
-    }
+function mostrarTabla(tabla) {
+    document.getElementById("tabla-empleados").style.display = (tabla === "empleados") ? "block" : "none";
+    document.getElementById("tabla-asistencias").style.display = (tabla === "asistencias") ? "block" : "none";
 }
 
 async function cargarEmpleados() {
-    try {
-        const snapshot = await db.collection("usuarios").get();
-        let html = "<h3>Listado de Empleados</h3>";
-        html += `<table>
-        <tr>
-          <th>Correo</th>
-          <th>Rol</th>
-        </tr>`;
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            html += `<tr>
-          <td>${data.email}</td>
-          <td>${data.role}</td>
-        </tr>`;
-        });
-        html += "</table>";
-        document.getElementById("admin-content").innerHTML = html;
-    } catch (error) {
-        console.error("Error al cargar empleados:", error);
+    const empleadosTable = $("#empleadosTable").DataTable({
+        scrollX: true,
+        destroy: true
+    });
+
+    const empleados = await db.collection("usuarios").get();
+    empleados.forEach(doc => {
+        const data = doc.data();
+        empleadosTable.row.add([
+            data.nombre,
+            data.identificacion,
+            data.nacimiento,
+            data.email,
+            `<button onclick="editarEmpleado('${doc.id}', '${data.nombre}', '${data.email}')">Editar</button>
+         <button onclick="eliminarEmpleado('${doc.id}')">Eliminar</button>`
+        ]).draw();
+    });
+}
+
+async function agregarEmpleado() {
+    const nombre = prompt("Ingrese el nombre:");
+    const email = prompt("Ingrese el correo:");
+    if (nombre && email) {
+        await db.collection("usuarios").add({ nombre, email });
+        cargarEmpleados();
     }
 }
+
+async function editarEmpleado(id, nombre, email) {
+    const nuevoNombre = prompt("Nuevo nombre:", nombre);
+    const nuevoEmail = prompt("Nuevo email:", email);
+    if (nuevoNombre && nuevoEmail) {
+        await db.collection("usuarios").doc(id).update({ nombre: nuevoNombre, email: nuevoEmail });
+        cargarEmpleados();
+    }
+}
+
+async function eliminarEmpleado(id) {
+    if (confirm("¿Estás seguro de eliminar este empleado?")) {
+        await db.collection("usuarios").doc(id).delete();
+        cargarEmpleados();
+    }
+}
+
+async function cargarAsistencias() {
+    const asistenciasTable = $("#asistenciasTable").DataTable({
+        scrollX: true,
+        destroy: true
+    });
+
+    const asistencias = await db.collection("asistencias").get();
+    asistencias.forEach(doc => {
+        const data = doc.data();
+        asistenciasTable.row.add([
+            data.userId,
+            data.fecha,
+            data.entradaTime || "No registrado",
+            data.entradaStatus || "N/A",
+            data.salidaTime || "No registrado",
+            data.salidaStatus || "N/A",
+            `<button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>`
+        ]).draw();
+    });
+}
+
+async function eliminarAsistencia(id) {
+    if (confirm("¿Estás seguro de eliminar este registro de asistencia?")) {
+        await db.collection("asistencias").doc(id).delete();
+        cargarAsistencias();
+    }
+}
+
+document.getElementById("logout-button").addEventListener("click", function () {
+    logout();
+});

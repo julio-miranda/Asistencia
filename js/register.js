@@ -1,6 +1,9 @@
 // js/register.js
 document.getElementById("register-form").addEventListener("submit", async function (e) {
     e.preventDefault();
+    const Nombre = document.getElementById("register-nombre").value;
+    const numero = document.getElementById("register-numero").value;
+    const Fecha = document.getElementById("register-Fecha").value;
     const email = document.getElementById("register-email").value;
     const pass = document.getElementById("register-password").value;
     const pass2 = document.getElementById("register-password2").value;
@@ -25,6 +28,9 @@ document.getElementById("register-form").addEventListener("submit", async functi
         const user = userCredential.user;
         // Guarda los datos del usuario en Firestore.
         await db.collection("usuarios").doc(user.uid).set({
+            nombre: Nombre,
+            identificacion: numero,
+            nacimiento: Fecha,
             email: email,
             role: role
         });
