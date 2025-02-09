@@ -47,7 +47,6 @@ nav ul li a:hover {
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
-    overflow-x: auto;
 }
 
 /* Botones */
@@ -67,7 +66,7 @@ button:hover {
 }
 
 /* Tablas */
-table, .dataTables_scroll {
+table {
     width: 100%;
     border-collapse: collapse;
 }
@@ -86,6 +85,7 @@ th {
 
 /* Responsive */
 @media (max-width: 768px) {
+
     nav ul {
         flex-direction: column;
     }
@@ -95,6 +95,10 @@ th {
     }
 
     .tabla-container {
+        width: 100%;
         padding: 10px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch; /* Mejora la experiencia en móviles */
+        white-space: nowrap;
     }
 }
