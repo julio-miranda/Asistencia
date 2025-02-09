@@ -29,7 +29,7 @@ document.getElementById("register-form").addEventListener("submit", async functi
             role: role
         });
         alert("Registro exitoso, ahora inicia sesión.");
-        window.location.href = "login.html";
+        window.location.href = "index.html";
     } catch (error) {
         alert(error.message);
     }
@@ -37,5 +37,5 @@ document.getElementById("register-form").addEventListener("submit", async functi
 
 document.getElementById("go-to-login").addEventListener("click", e => {
     e.preventDefault();
-    window.location.href = "login.html";
+    window.location.href = "index.html";
 });
