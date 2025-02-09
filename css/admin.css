@@ -23,6 +23,7 @@ nav ul {
 
 nav ul li {
     margin: 0 15px;
+    align-content: center;
 }
 
 nav ul li a {
