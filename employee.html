@@ -1,150 +1,26 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-    <meta charset="utf-8">
-    <title>Módulo Empleado - Control de Asistencia</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background: #f9f9f9;
-        }
-
-        #reader {
-            width: 300px;
-            margin: 20px auto;
-        }
-
-        button {
-            padding: 10px 20px;
-            margin: 10px;
-        }
-    </style>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <!-- Librería para escanear QR -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Módulo Empleado - Control de Asistencia</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <!-- Configuración y funciones comunes -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/auth.js"></script>
 </head>
-
 <body>
-    <h1>Módulo Empleado</h1>
-    <p>Bienvenido, <span id="userEmail"></span></p>
-    <div id="reader"></div>
-    <p id="result"></p>
-    <button id="logoutBtn">Cerrar Sesión</button>
-
-    <script>
-        // 1. CONFIGURACIÓN DE FIREBASE – reemplaza estos datos por los de tu proyecto
-        const firebaseConfig = {
-            apiKey: "AIzaSyD5AzdqX-y7RLIpInc-Rqh12eCdbkyUHK4",
-            authDomain: "asistencia-jm-asociados.firebaseapp.com",
-            projectId: "asistencia-jm-asociados",
-            storageBucket: "asistencia-jm-asociados.firebasestorage.app",
-            messagingSenderId: "167727595796",
-            appId: "1:167727595796:web:21ef39c8e9986a7ecf8201",
-            measurementId: "G-2J5SJF1L2S"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-
-        // 2. Verificar autenticación
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                document.getElementById("userEmail").textContent = user.email;
-            } else {
-                window.location.href = "index.html";
-            }
-        });
-
-        // 3. Función para obtener la fecha actual en formato YYYY-MM-DD
-        function getCurrentDate() {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = ("0" + (today.getMonth() + 1)).slice(-2);
-            const day = ("0" + today.getDate()).slice(-2);
-            return `${year}-${month}-${day}`;
-        }
-
-        // 4. Configuración e inicio del lector QR (usando html5-qrcode)
-        const html5QrCode = new Html5Qrcode("reader");
-        const qrConfig = { fps: 10, qrbox: 250 };
-
-        // Función que se ejecuta al detectar un QR
-        function onScanSuccess(decodedText, decodedResult) {
-            // Se detiene el escaneo al obtener un resultado
-            html5QrCode.stop().then(() => {
-                processAttendance(decodedText);
-            }).catch(err => console.error("Error al detener el escaneo:", err));
-        }
-        // Iniciar el escáner
-        function startScanner() {
-            html5QrCode.start({ facingMode: "environment" }, qrConfig, onScanSuccess)
-                .catch(err => console.error("Error al iniciar el escaneo:", err));
-        }
-        startScanner();
-
-        // 5. Función para procesar el registro de asistencia
-        async function processAttendance(qrText) {
-            const user = auth.currentUser;
-            const now = new Date();
-            const currentDate = getCurrentDate();
-            // Usamos un documento único por usuario y día (por ejemplo: uid_2025-02-08)
-            const attendanceRef = db.collection("attendances").doc(user.uid + "_" + currentDate);
-
-            const doc = await attendanceRef.get();
-            if (!doc.exists) {
-                // Primer escaneo del día: registrar llegada
-                let arrivalType = "";
-                const hour = now.getHours();
-                if (hour < 8) {
-                    arrivalType = "llegada temprana";
-                } else if (hour >= 8 && hour < 16) {
-                    arrivalType = "llegada tarde";
-                } else {
-                    arrivalType = "llegada fuera de horario";
-                }
-                await attendanceRef.set({
-                    uid: user.uid,
-                    email: user.email,
-                    date: currentDate,
-                    arrivalTime: now.toLocaleTimeString(),
-                    arrivalType: arrivalType,
-                    qrTextArrival: qrText
-                });
-                document.getElementById("result").textContent = "Registro de llegada guardado: " + arrivalType;
-            } else {
-                // Ya existe registro de llegada: registrar salida (segundo escaneo)
-                if (doc.data().departureTime) {
-                    document.getElementById("result").textContent = "Ya se registró la salida.";
-                } else {
-                    let departureType = "";
-                    const hour = now.getHours();
-                    // Si el escaneo de salida ocurre entre 8:00 y 16:00 se registra como salida normal;
-                    // de lo contrario, se asume "salida temprana"
-                    if (hour >= 8 && hour < 16) {
-                        departureType = "salida";
-                    } else {
-                        departureType = "salida temprana";
-                    }
-                    await attendanceRef.update({
-                        departureTime: now.toLocaleTimeString(),
-                        departureType: departureType,
-                        qrTextDeparture: qrText
-                    });
-                    document.getElementById("result").textContent = "Registro de salida guardado: " + departureType;
-                }
-            }
-        }
-
-        // 6. Cerrar sesión
-        document.getElementById("logoutBtn").addEventListener("click", () => {
-            auth.signOut().then(() => window.location.href = "index.html");
-        });
-    </script>
+  <div class="section">
+    <h2>Módulo Empleado</h2>
+    <p>Por favor, escanea el QR con el texto <strong>J.M Asociados</strong></p>
+    <button id="scan-qr-button">Escanear QR</button>
+    <div id="qr-result"></div>
+    <button id="logout-button">Cerrar Sesión</button>
+  </div>
+  <script src="js/employee.js"></script>
 </body>
-
 </html>
