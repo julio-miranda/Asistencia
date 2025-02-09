@@ -1,11 +1,11 @@
 // js/auth.js
-// Verifica si el usuario está autenticado. Si no, redirige a login.html.
+// Verifica si el usuario está autenticado. Si no, redirige a index.html.
 function checkUserAuth(callback) {
     auth.onAuthStateChanged(user => {
         if (user) {
             callback(user);
         } else {
-            window.location.href = "login.html";
+            window.location.href = "index.html";
         }
     });
 }
@@ -28,6 +28,6 @@ async function getUserRole(user) {
 // Función para cerrar sesión.
 function logout() {
     auth.signOut().then(() => {
-        window.location.href = "login.html";
+        window.location.href = "index.html";
     });
 }
