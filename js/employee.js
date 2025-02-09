@@ -1,4 +1,5 @@
 // js/employee.js
+
 // Verifica que el usuario esté autenticado y tenga rol "empleado"
 checkUserAuth(async function (user) {
     const role = await getUserRole(user);
@@ -8,23 +9,37 @@ checkUserAuth(async function (user) {
     }
 });
 
-document.getElementById("scan-qr-button").addEventListener("click", async () => {
-    // Simula el escaneo del QR mediante prompt()
-    const scannedText = prompt("Simula el escaneo del QR. Ingresa el texto del QR:");
-    if (scannedText !== "J.M Asociados") {
-        alert("QR incorrecto.");
+// Función que se ejecuta cuando se detecta un código QR exitosamente
+function onScanSuccess(decodedText, decodedResult) {
+    // Verifica que el texto escaneado sea el correcto
+    if (decodedText !== "J.M Asociados") {
+        alert("QR incorrecto. Intenta nuevamente.");
         return;
     }
-    registrarAsistencia();
-});
+    // Detiene el escáner y registra la asistencia
+    html5QrcodeScanner.clear().then(() => {
+        registrarAsistencia();
+    }).catch((error) => {
+        console.error("Error al detener el escáner", error);
+    });
+}
 
+// Configura el escáner en el contenedor "reader"
+var html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    { fps: 10, qrbox: 250 },
+    /* verbose= */ false
+);
+html5QrcodeScanner.render(onScanSuccess);
+
+// Función para registrar la asistencia en Firebase Firestore
 async function registrarAsistencia() {
     const user = auth.currentUser;
     if (!user) return;
 
     const now = new Date();
     const hour = now.getHours();
-    // Formateamos la fecha para agrupar los registros por día (YYYY-MM-DD)
+    // Formateamos la fecha en formato YYYY-MM-DD para agrupar registros por día
     const fechaHoy = now.toISOString().split("T")[0];
 
     try {
@@ -78,6 +93,7 @@ async function registrarAsistencia() {
     }
 }
 
+// Evento para cerrar sesión
 document.getElementById("logout-button").addEventListener("click", function () {
     logout();
 });
