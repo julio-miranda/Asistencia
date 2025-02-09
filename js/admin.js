@@ -55,7 +55,6 @@ async function eliminarEmpleado(id) {
 
 async function cargarAsistencias() {
     const asistenciasTable = $("#asistenciasTable").DataTable({
-        scrollX: true,
         destroy: true
     });
 
