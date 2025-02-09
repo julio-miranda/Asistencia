@@ -12,6 +12,7 @@ async function cargarEmpleados() {
     const empleadosTable = $("#empleadosTable").DataTable({
         scrollX: true,
         destroy: true,
+        Response:true,
         "paging": true,
         "searching": true,
         "ordering": true,
@@ -73,6 +74,7 @@ async function cargarAsistencias() {
     const asistenciasTable = $("#asistenciasTable").DataTable({
         scrollX: true,
         destroy: true,
+        Response:true,
         "paging": true,
         "searching": true,
         "ordering": true,
