@@ -16,9 +16,9 @@ async function cargarEmpleados() {
         "searching": true,
         "ordering": true,
         "language": {
-            "lengthMenu": "Mostrar _MENU_ registros",
+            "lengthMenu": "Mostrar _MENU_ Empleados",
             "zeroRecords": "No se encontraron resultados",
-            "info": "Mostrando _START_ a _END_ de _TOTAL_ productos",
+            "info": "Mostrando _START_ a _END_ de _TOTAL_ Empleados",
             "infoFiltered": "(filtrado de _MAX_ total)",
             "search": "Buscar:",
             paginate: {
@@ -79,7 +79,7 @@ async function cargarAsistencias() {
         "language": {
             "lengthMenu": "Mostrar _MENU_ registros",
             "zeroRecords": "No se encontraron resultados",
-            "info": "Mostrando _START_ a _END_ de _TOTAL_ productos",
+            "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
             "infoFiltered": "(filtrado de _MAX_ total)",
             "search": "Buscar:",
             paginate: {
