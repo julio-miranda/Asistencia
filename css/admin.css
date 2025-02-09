@@ -73,6 +73,7 @@ table {
 
 th,
 td {
+    width: 100%;
     padding: 12px;
     border: 1px solid #ddd;
     text-align: center;
@@ -98,17 +99,5 @@ th {
 
     nav ul li {
         font-size: 10px;
-    }
-
-    .tabla-asistencias{
-        width: 100%;
-        padding: 10px;
-        white-space: nowrap;
-
-    }
-
-    #asistenciasTable_wrapper, .dataTables_scroll {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch; /* Mejora la experiencia en móviles */
     }
 }

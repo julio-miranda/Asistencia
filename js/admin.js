@@ -99,7 +99,7 @@ async function cargarAsistencias() {
     asistencias.forEach(doc => {
         const data = doc.data();
         asistenciasTable.row.add([
-            data.userId,
+            data.user,
             data.fecha,
             data.entradaTime || "No registrado",
             data.entradaStatus || "N/A",
