@@ -24,26 +24,50 @@ function onScanSuccess(decodedText, decodedResult) {
     });
 }
 
-// Configura el escáner en el contenedor "reader" usando la cámara, sin permitir cargar archivos de imagen
+// Función que maneja los errores de escaneo
+function onScanError(errorMessage) {
+    // No hacer nada si el error no está relacionado con un intento de cargar una imagen
+    if (errorMessage.includes("File input")) {
+        alert("Por favor, usa la cámara para escanear el código QR.");
+        // Reinicia el escáner para que el usuario solo pueda usar la cámara
+        html5QrcodeScanner.clear().then(() => {
+            html5QrcodeScanner.render(onScanSuccess, onScanError);
+        }).catch((error) => {
+            console.error("Error al reiniciar el escáner", error);
+        });
+    }
+}
+
+// Configura el escáner en el contenedor "reader" usando la cámara, sin permitir cargar imágenes
 var html5QrcodeScanner = new Html5QrcodeScanner(
     "reader",
     {
         fps: 10,
         qrbox: 250,
-        // Asegurarse de que solo se use la cámara
         videoConstraints: {
-            facingMode: "environment" // Usar la cámara trasera del dispositivo
-        }
+            facingMode: "environment"  // Usamos la cámara trasera del dispositivo
+        },
+        // Deshabilitamos la opción de importar archivos de imagen
+        useFileInput: false
     },
     /* verbose= */ false
 );
 
-// Eliminamos cualquier posible botón de carga de imágenes
-html5QrcodeScanner.render(onScanSuccess);
-html5QrcodeScanner.clear().then(() => {
-    // Solo habilitamos la cámara para escanear, sin opción para cargar imagenes
-}).catch((error) => {
-    console.error("Error al inicializar el escáner", error);
+// Inicia el escáner solo con la cámara
+html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+// Deshabilitar completamente la carga de archivos (imagen) a través de un evento
+document.addEventListener('DOMContentLoaded', function () {
+    // Prevenir la carga de archivos (imagen) si se intenta
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+        fileInput.setAttribute('disabled', true);  // Deshabilitamos el campo de archivo
+        // Opcionalmente, podrías agregar un evento que muestre una alerta si se intenta cargar un archivo
+        fileInput.addEventListener('click', function () {
+            alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
+            window.location.href = "employee.html";
+        });
+    }
 });
 
 // Función para registrar la asistencia en Firebase Firestore, permitiendo múltiples entradas y salidas por día
