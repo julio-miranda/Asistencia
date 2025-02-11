@@ -24,17 +24,27 @@ function onScanSuccess(decodedText, decodedResult) {
     });
 }
 
-// Configuración del escáner para asegurar que solo se pueda escanear con la cámara
+// Configura el escáner en el contenedor "reader" usando la cámara, sin permitir cargar archivos de imagen
 var html5QrcodeScanner = new Html5QrcodeScanner(
     "reader",
     {
-        fps: 10,         // Frame rate (fotogramas por segundo) del escáner
-        qrbox: 250,      // Tamaño del cuadro donde se muestra el escáner
-        supportedScanTypes: [Html5QrcodeScanType.CAMERA],  // Solo permite el uso de la cámara para escanear
+        fps: 10,
+        qrbox: 250,
+        // Asegurarse de que solo se use la cámara
+        videoConstraints: {
+            facingMode: "environment" // Usar la cámara trasera del dispositivo
+        }
     },
     /* verbose= */ false
 );
+
+// Eliminamos cualquier posible botón de carga de imágenes
 html5QrcodeScanner.render(onScanSuccess);
+html5QrcodeScanner.clear().then(() => {
+    // Solo habilitamos la cámara para escanear, sin opción para cargar imagenes
+}).catch((error) => {
+    console.error("Error al inicializar el escáner", error);
+});
 
 // Función para registrar la asistencia en Firebase Firestore, permitiendo múltiples entradas y salidas por día
 async function registrarAsistencia() {
