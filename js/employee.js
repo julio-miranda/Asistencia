@@ -16,6 +16,7 @@ function onScanSuccess(decodedText, decodedResult) {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
     }
+
     // Detiene el escáner y registra la asistencia
     html5QrcodeScanner.clear().then(() => {
         registrarAsistencia();
@@ -24,13 +25,24 @@ function onScanSuccess(decodedText, decodedResult) {
     });
 }
 
-// Configura el escáner en el contenedor "reader"
+// Configura el escáner en el contenedor "reader" y desactiva la entrada manual
 var html5QrcodeScanner = new Html5QrcodeScanner(
     "reader",
-    { fps: 10, qrbox: 250 },
+    {
+        fps: 10,            // Frame per second
+        qrbox: 250,         // Tamaño del área de escaneo
+        disableScanWhenInverted: true,  // Deshabilita el escaneo si el código es invertido
+        videoConstraints: {
+            facingMode: "environment"  // Forzar uso de la cámara trasera
+        }
+    },
     /* verbose= */ false
 );
-html5QrcodeScanner.render(onScanSuccess);
+
+// Solo permite escanear códigos QR, no permite ingresar código manualmente
+html5QrcodeScanner.render(onScanSuccess, function (errorMessage) {
+    console.error("Escaneo fallido: ", errorMessage);  // Mensajes de error
+});
 
 // Función para registrar la asistencia en Firebase Firestore, permitiendo múltiples entradas y salidas por día
 async function registrarAsistencia() {
