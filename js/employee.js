@@ -37,22 +37,19 @@ async function registrarAsistencia() {
 
     const now = new Date();
     const hour = now.getHours();
-    // Formateamos la fecha en formato YYYY-MM-DD para agrupar registros por día
-    const fechaHoy = now.toISOString().split("T")[0];
+    const fechaHoy = now.toISOString().split("T")[0]; // Formato YYYY-MM-DD
 
     try {
-        // Se consulta si ya existen registros de asistencia para hoy
+        // Consulta los registros de asistencia para hoy
         const asistenciaQuery = await db.collection("asistencias")
             .where("userId", "==", user.uid)
             .where("fecha", "==", fechaHoy)
+            .orderBy("entradaTime")
             .get();
 
-        const registros = asistenciaQuery.docs.map(doc => doc.data());
-
-        // Verificar si es la primera entrada o salida
-        if (registros.length % 2 === 0) {
-            // Primera entrada o entrada alterna: se registra la entrada
-            let entradaStatus = "";
+        let entradaStatus = "";
+        if (asistenciaQuery.empty) {
+            // Primer escaneo del día: es una entrada
             if (hour < 8) {
                 entradaStatus = "Llegada temprana";
             } else if (hour >= 8 && hour < 16) {
@@ -60,33 +57,59 @@ async function registrarAsistencia() {
             } else {
                 entradaStatus = "Hora de entrada fuera de horario";
             }
-
-            const empleado = await db.collection("usuarios").where("email", "==", user.email).get();
             await db.collection("asistencias").add({
-                user: empleado.docs[0].data().nombre,
                 userId: user.uid,
+                user: user.displayName,
                 fecha: fechaHoy,
                 entradaTime: now.toLocaleTimeString(),
                 entradaStatus: entradaStatus,
                 salidaTime: null,
                 salidaStatus: null
             });
-
             document.getElementById("qr-result").innerHTML = `<p>Entrada registrada a las ${now.toLocaleTimeString()} (${entradaStatus})</p>`;
         } else {
-            // Segunda entrada o salida alterna: se registra la salida
-            let salidaStatus = (hour < 16) ? "Salida temprana" : "Salida";
-            const docAsistencia = registros[registros.length - 1];
+            // Ya existe una entrada, verificamos si es hora de salida o más entradas
+            let lastEntry = null;
+            let lastExit = null;
+            asistenciaQuery.forEach(doc => {
+                const data = doc.data();
+                if (!data.salidaTime) {
+                    lastEntry = doc; // Última entrada sin salida
+                } else {
+                    lastExit = doc; // Última salida registrada
+                }
+            });
 
-            if (!docAsistencia.salidaTime) {
-                await db.collection("asistencias").doc(docAsistencia.id).update({
+            // Si la última entrada no tiene salida, registrar salida
+            if (lastEntry && !lastEntry.data().salidaTime) {
+                let salidaStatus = (hour < 16) ? "Salida temprana" : "Salida";
+                await lastEntry.ref.update({
                     salidaTime: now.toLocaleTimeString(),
                     salidaStatus: salidaStatus
                 });
-
                 document.getElementById("qr-result").innerHTML = `<p>Salida registrada a las ${now.toLocaleTimeString()} (${salidaStatus})</p>`;
+            } else if (lastExit && lastExit.data().salidaTime) {
+                // Si la última salida tiene hora, registrar una nueva entrada
+                let entradaStatus = "";
+                if (hour < 8) {
+                    entradaStatus = "Llegada temprana";
+                } else if (hour >= 8 && hour < 16) {
+                    entradaStatus = "Llegada tarde";
+                } else {
+                    entradaStatus = "Hora de entrada fuera de horario";
+                }
+                await db.collection("asistencias").add({
+                    userId: user.uid,
+                    user: user.displayName,
+                    fecha: fechaHoy,
+                    entradaTime: now.toLocaleTimeString(),
+                    entradaStatus: entradaStatus,
+                    salidaTime: null,
+                    salidaStatus: null
+                });
+                document.getElementById("qr-result").innerHTML = `<p>Entrada registrada a las ${now.toLocaleTimeString()} (${entradaStatus})</p>`;
             } else {
-                alert("Ya se registraron la entrada y salida para hoy.");
+                alert("Ya se registró la entrada y salida para hoy.");
             }
         }
     } catch (error) {
