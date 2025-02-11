@@ -1,5 +1,3 @@
-// js/employee.js
-
 // Verifica que el usuario esté autenticado y tenga rol "empleado"
 checkUserAuth(async function (user) {
     const role = await getUserRole(user);
@@ -43,14 +41,17 @@ async function registrarAsistencia() {
     const fechaHoy = now.toISOString().split("T")[0];
 
     try {
-        // Se consulta si ya existe un registro de asistencia para hoy
+        // Se consulta si ya existen registros de asistencia para hoy
         const asistenciaQuery = await db.collection("asistencias")
             .where("userId", "==", user.uid)
             .where("fecha", "==", fechaHoy)
             .get();
 
-        if (asistenciaQuery.empty) {
-            // Primer escaneo del día: se registra la entrada.
+        const registros = asistenciaQuery.docs.map(doc => doc.data());
+
+        // Verificar si es la primera entrada o salida
+        if (registros.length % 2 === 0) {
+            // Primera entrada o entrada alterna: se registra la entrada
             let entradaStatus = "";
             if (hour < 8) {
                 entradaStatus = "Llegada temprana";
@@ -59,33 +60,33 @@ async function registrarAsistencia() {
             } else {
                 entradaStatus = "Hora de entrada fuera de horario";
             }
-            const empleado = await db.collection("usuarios").where("email","=",user.email).get();
+
+            const empleado = await db.collection("usuarios").where("email", "==", user.email).get();
             await db.collection("asistencias").add({
-                user: empleado.nombre,
+                user: empleado.docs[0].data().nombre,
+                userId: user.uid,
                 fecha: fechaHoy,
                 entradaTime: now.toLocaleTimeString(),
                 entradaStatus: entradaStatus,
                 salidaTime: null,
                 salidaStatus: null
             });
+
             document.getElementById("qr-result").innerHTML = `<p>Entrada registrada a las ${now.toLocaleTimeString()} (${entradaStatus})</p>`;
         } else {
-            // Si ya existe un registro, se verifica si aún no se ha registrado la salida.
-            let docAsistencia = null;
-            asistenciaQuery.forEach(doc => {
-                if (!doc.data().salidaTime) {
-                    docAsistencia = doc;
-                }
-            });
-            if (docAsistencia) {
-                const salidaStatus = (hour < 16) ? "Salida temprana" : "Salida";
-                await docAsistencia.ref.update({
+            // Segunda entrada o salida alterna: se registra la salida
+            let salidaStatus = (hour < 16) ? "Salida temprana" : "Salida";
+            const docAsistencia = registros[registros.length - 1];
+
+            if (!docAsistencia.salidaTime) {
+                await db.collection("asistencias").doc(docAsistencia.id).update({
                     salidaTime: now.toLocaleTimeString(),
                     salidaStatus: salidaStatus
                 });
+
                 document.getElementById("qr-result").innerHTML = `<p>Salida registrada a las ${now.toLocaleTimeString()} (${salidaStatus})</p>`;
             } else {
-                alert("Ya se registró la entrada y salida para hoy.");
+                alert("Ya se registraron la entrada y salida para hoy.");
             }
         }
     } catch (error) {
