@@ -1,3 +1,5 @@
+// js/employee.js
+
 // Verifica que el usuario esté autenticado y tenga rol "empleado"
 checkUserAuth(async function (user) {
     const role = await getUserRole(user);
@@ -30,88 +32,71 @@ var html5QrcodeScanner = new Html5QrcodeScanner(
 );
 html5QrcodeScanner.render(onScanSuccess);
 
-// Función para registrar la asistencia en Firebase Firestore
+// Función para registrar la asistencia en Firebase Firestore, permitiendo múltiples entradas y salidas por día
 async function registrarAsistencia() {
     const user = auth.currentUser;
     if (!user) return;
 
     const now = new Date();
     const hour = now.getHours();
-    const fechaHoy = now.toISOString().split("T")[0]; // Formato YYYY-MM-DD
+    // Se formatea la fecha en formato YYYY-MM-DD para agrupar los registros diarios
+    const fechaHoy = now.toISOString().split("T")[0];
 
     try {
-        // Consulta los registros de asistencia para hoy
+        // Se consulta todos los registros de asistencia del usuario para el día de hoy
         const asistenciaQuery = await db.collection("asistencias")
             .where("userId", "==", user.uid)
             .where("fecha", "==", fechaHoy)
-            .orderBy("entradaTime")
             .get();
 
-        let entradaStatus = "";
-        if (asistenciaQuery.empty) {
-            // Primer escaneo del día: es una entrada
-            if (hour < 8) {
-                entradaStatus = "Llegada temprana";
-            } else if (hour >= 8 && hour < 16) {
-                entradaStatus = "Llegada tarde";
-            } else {
-                entradaStatus = "Hora de entrada fuera de horario";
-            }
-            await db.collection("asistencias").add({
-                userId: user.uid,
-                user: user.displayName,
-                fecha: fechaHoy,
-                entradaTime: now.toLocaleTimeString(),
-                entradaStatus: entradaStatus,
-                salidaTime: null,
-                salidaStatus: null
-            });
-            document.getElementById("qr-result").innerHTML = `<p>Entrada registrada a las ${now.toLocaleTimeString()} (${entradaStatus})</p>`;
-        } else {
-            // Ya existe una entrada, verificamos si es hora de salida o más entradas
-            let lastEntry = null;
-            let lastExit = null;
-            asistenciaQuery.forEach(doc => {
-                const data = doc.data();
-                if (!data.salidaTime) {
-                    lastEntry = doc; // Última entrada sin salida
-                } else {
-                    lastExit = doc; // Última salida registrada
-                }
-            });
+        // Número de escaneos ya realizados en el día
+        const scanCount = asistenciaQuery.size;
+        // Si el número de escaneos es par, se registra una entrada; si es impar, se registra una salida
+        const tipo = (scanCount % 2 === 0) ? "entrada" : "salida";
 
-            // Si la última entrada no tiene salida, registrar salida
-            if (lastEntry && !lastEntry.data().salidaTime) {
-                let salidaStatus = (hour < 16) ? "Salida temprana" : "Salida";
-                await lastEntry.ref.update({
-                    salidaTime: now.toLocaleTimeString(),
-                    salidaStatus: salidaStatus
-                });
-                document.getElementById("qr-result").innerHTML = `<p>Salida registrada a las ${now.toLocaleTimeString()} (${salidaStatus})</p>`;
-            } else if (lastExit && lastExit.data().salidaTime) {
-                // Si la última salida tiene hora, registrar una nueva entrada
-                let entradaStatus = "";
-                if (hour < 8) {
-                    entradaStatus = "Llegada temprana";
-                } else if (hour >= 8 && hour < 16) {
-                    entradaStatus = "Llegada tarde";
-                } else {
-                    entradaStatus = "Hora de entrada fuera de horario";
-                }
-                await db.collection("asistencias").add({
-                    userId: user.uid,
-                    user: user.displayName,
-                    fecha: fechaHoy,
-                    entradaTime: now.toLocaleTimeString(),
-                    entradaStatus: entradaStatus,
-                    salidaTime: null,
-                    salidaStatus: null
-                });
-                document.getElementById("qr-result").innerHTML = `<p>Entrada registrada a las ${now.toLocaleTimeString()} (${entradaStatus})</p>`;
+        // Determinar el estado según la hora y el tipo de registro
+        let status = "";
+        if (tipo === "entrada") {
+            if (hour < 8) {
+                status = "Llegada temprana";
+            } else if (hour >= 8 && hour < 16) {
+                status = "Llegada tarde";
             } else {
-                alert("Ya se registró la entrada y salida para hoy.");
+                status = "Hora de entrada fuera de horario";
             }
+        } else { // salida
+            status = (hour < 16) ? "Salida temprana" : "Salida";
         }
+
+        // Obtener el nombre del empleado desde la colección "usuarios"
+        let nombreEmpleado = user.email; // Por defecto se usa el email
+        const empleadoQuery = await db.collection("usuarios")
+            .where("email", "==", user.email)
+            .limit(1)
+            .get();
+        if (!empleadoQuery.empty) {
+            nombreEmpleado = empleadoQuery.docs[0].data().nombre;
+        }
+
+        // Agregar un nuevo documento en "asistencias" con los datos del escaneo
+        await db.collection("asistencias").add({
+            userId: user.uid,
+            user: nombreEmpleado,
+            fecha: fechaHoy,
+            scanNumber: scanCount + 1,
+            time: now.toLocaleTimeString(),
+            tipo: tipo,    // "entrada" o "salida"
+            status: status
+        });
+
+        // Mostrar mensaje en el elemento "qr-result"
+        let message = "";
+        if (tipo === "entrada") {
+            message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
+        } else {
+            message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
+        }
+        document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
     }
