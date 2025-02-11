@@ -84,21 +84,22 @@ th {
     color: white;
 }
 
-/* Ajustar el ancho de las columnas de la tabla de asistencias */
-div.dataTables_scrollHeadInner,
-.asistenciasTable_wrapper th,
-.asistenciasTable_wrapper td,
-.asistenciasTable_wrapper div.dataTables_scrollHeadInner,
-.asistenciasTable_wrapper div.dataTables_scrollHeadInner table {
-    width: auto;
+/* Alinear el contenido de las celdas y evitar que se rompa la línea */
+#asistenciasTable th,
+#asistenciasTable td {
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
 }
 
-.asistenciasTable_wrapper td {
-    width: auto;
-    min-width: 120px;
-    /* Ajusta este valor según tus necesidades */
-}
-
+/* Anchos específicos para cada columna */
+#asistenciasTable .col-emp { width: auto; }
+#asistenciasTable .col-fecha { width: auto; }
+#asistenciasTable .col-scan { width: auto; }
+#asistenciasTable .col-tipo { width: auto; }
+#asistenciasTable .col-hora { width: auto; }
+#asistenciasTable .col-status { width: auto; }
+#asistenciasTable .col-acciones { width: auto; }
 
 /* Responsive */
 @media (max-width: 768px) {
