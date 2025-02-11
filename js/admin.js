@@ -14,7 +14,8 @@ async function cargarEmpleados() {
     const empleadosTable = $("#empleadosTable").DataTable({
         scrollX: true,
         destroy: true,
-        Response:true,
+        Response: true,
+        autoWidth: false,
         "paging": true,
         "searching": true,
         "ordering": true,
@@ -76,7 +77,8 @@ async function cargarAsistencias() {
     const asistenciasTable = $("#asistenciasTable").DataTable({
         scrollX: true,
         destroy: true,
-        Response:true,
+        Response: true,
+        autoWidth: false,
         "paging": true,
         "searching": true,
         "ordering": true,
@@ -92,7 +94,37 @@ async function cargarAsistencias() {
                 next: "Siguiente",
                 previous: "Anterior"
             }
-        }
+        },
+        "columnDefs": [
+            {
+                "targets": 0, // Columna de 'Empleado'
+                "width": "150px"
+            },
+            {
+                "targets": 1, // Columna de 'Fecha'
+                "width": "120px"
+            },
+            {
+                "targets": 2, // Columna de 'Hora Entrada'
+                "width": "150px"
+            },
+            {
+                "targets": 3, // Columna de 'Estado Entrada'
+                "width": "120px"
+            },
+            {
+                "targets": 4, // Columna de 'Hora Salida'
+                "width": "150px"
+            },
+            {
+                "targets": 5, // Columna de 'Estado Salida'
+                "width": "120px"
+            },
+            {
+                "targets": 6, // Columna de 'Acciones'
+                "width": "180px"
+            }
+        ]
     });
 
     const asistencias = await db.collection("asistencias").get();

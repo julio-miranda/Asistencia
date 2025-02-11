@@ -41,12 +41,8 @@ nav ul li a:hover {
 
 /* Contenedores */
 .tabla-container {
-    max-width: 95%;
-    margin: 20px auto;
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    margin: 20px;
+
 }
 
 /* Botones */
@@ -65,25 +61,44 @@ button:hover {
     background-color: #0056b3;
 }
 
-/* Tablas */
+/* Estilos de las tablas */
 table {
     width: 100%;
     border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 th,
 td {
-    width: 100%;
+    width: auto;
     padding: 12px;
     border: 1px solid #ddd;
     text-align: center;
 }
 
 th {
-    width: 100%;
+    width: auto;
     background-color: #007bff;
     color: white;
 }
+
+/* Ajustar el ancho de las columnas de la tabla de asistencias */
+div.dataTables_scrollHeadInner,
+.asistenciasTable_wrapper th,
+.asistenciasTable_wrapper td,
+.asistenciasTable_wrapper div.dataTables_scrollHeadInner,
+.asistenciasTable_wrapper div.dataTables_scrollHeadInner table {
+    width: auto;
+}
+
+.asistenciasTable_wrapper td {
+    width: auto;
+    min-width: 120px;
+    /* Ajusta este valor según tus necesidades */
+}
+
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -93,7 +108,7 @@ th {
     }
 
     nav ul {
-        width: 95%;
+        width: auto;
         flex-direction: row;
     }
 
