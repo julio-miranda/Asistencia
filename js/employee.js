@@ -73,7 +73,7 @@ function obtenerUbicacionYRegistrar() {
                 if (distancia <= tolerance) {
                     registrarAsistencia();
                 } else {
-                    alert(`Ubicación inválida. Estás a ${distancia.toFixed(2)} metros del punto permitido. lat: ${refLatitude}, lon: ${refLongitude}`);
+                    alert(`Ubicación inválida. Estás a ${distancia.toFixed(2)} metros del punto permitido. lat: ${latitude}, lon: ${longitude}`);
                     setTimeout(() => {
                         window.location.href = "employee.html";
                     }, 3000);
