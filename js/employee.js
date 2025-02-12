@@ -65,7 +65,7 @@ function obtenerUbicacionYRegistrar() {
                 if (isNearby) {
                     registrarAsistencia();
                 } else {
-                    mostrarMensaje("Ubicación inválida. Debes estar en la zona correcta.", "error");
+                    mostrarMensaje(`Ubicación inválida. Debes estar en la zona correcta.Latitud: ${latitude}, Longitud: ${longitude}`, "error");
                     setTimeout(() => window.location.href = "employee.html", 3000);
                 }
             },
