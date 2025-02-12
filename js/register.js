@@ -33,6 +33,7 @@ document.getElementById("register-form").addEventListener("submit", async functi
             nacimiento: Fecha,
             email: email,
             descripcion: "Sin descripcion",
+            salarioH: 1.25,
             role: role
         });
         alert("Registro exitoso, ahora inicia sesión.");
