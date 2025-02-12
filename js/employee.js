@@ -53,7 +53,7 @@ function obtenerUbicacionYRegistrar() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude, accuracy } = position.coords;
-                console.log(`Latitud: ${latitude}, Longitud: ${longitude}, Precisión: ${accuracy}m`);
+                document.getElementById("qr-result") = (`Latitud: ${latitude}, Longitud: ${longitude}, Precisión: ${accuracy}m`);
 
                 // Verifica que la precisión de la ubicación sea aceptable
                 if (accuracy > 20) { // Aceptar solo ubicaciones con precisión menor a 20 metros
@@ -70,7 +70,7 @@ function obtenerUbicacionYRegistrar() {
                 if (isNearby) {
                     registrarAsistencia();
                 } else {
-                    mostrarMensaje("Ubicación inválida. Debes estar en la zona correcta.", "error");
+                    //mostrarMensaje("Ubicación inválida. Debes estar en la zona correcta.", "error");
                     setTimeout(() => window.location.href = "employee.html", 3000);
                 }
             },
