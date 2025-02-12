@@ -20,7 +20,7 @@ checkUserAuth(async function (user) {
 
 // Función para mostrar mensajes en la UI en lugar de usar alert()
 function mostrarMensaje(mensaje, tipo = "error") {
-    const mensajeElemento = document.getElementById("mensaje-ubicacion");
+    const mensajeElemento = document.getElementById("qr-result");
     if (mensajeElemento) {
         mensajeElemento.innerText = mensaje;
         mensajeElemento.className = tipo;  // Clases CSS como "error" o "success"
