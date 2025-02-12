@@ -1,11 +1,10 @@
-// js/employee.js
-
 // Verifica que el usuario esté autenticado y tenga rol "empleado"
 checkUserAuth(async function (user) {
     if (!user) {
         window.location.href = "index.html";
         return;
     }
+
     try {
         const role = await getUserRole(user);
         if (role !== "empleado") {
@@ -17,66 +16,62 @@ checkUserAuth(async function (user) {
     }
 });
 
+// Función para mostrar mensajes en la UI en lugar de usar alert()
+function mostrarMensaje(mensaje, tipo = "error") {
+    const mensajeElemento = document.getElementById("mensaje-ubicacion");
+    if (mensajeElemento) {
+        mensajeElemento.innerText = mensaje;
+        mensajeElemento.className = tipo;  // Clases CSS como "error" o "success"
+    } else {
+        alert(mensaje); // Fallback si el elemento no existe
+    }
+}
+
 // Función que se ejecuta cuando se detecta un código QR exitosamente
 function onScanSuccess(decodedText) {
     if (decodedText !== "J.M Asociados") {
-        alert("QR incorrecto. Intenta nuevamente.");
+        mostrarMensaje("QR incorrecto. Intenta nuevamente.");
         return;
     }
 
     if (typeof html5QrcodeScanner !== "undefined" && html5QrcodeScanner !== null) {
-        html5QrcodeScanner.clear().then(() => {
-            obtenerUbicacionYRegistrar();
-        }).catch((error) => {
-            console.error("Error al detener el escáner", error);
-        });
+        html5QrcodeScanner.clear().then(obtenerUbicacionYRegistrar)
+        .catch((error) => console.error("Error al detener el escáner", error));
     } else {
         obtenerUbicacionYRegistrar();
     }
 }
 
-// Función para calcular la distancia entre dos coordenadas usando Haversine
-function calcularDistancia(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Radio de la Tierra en metros
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ / 2) ** 2 +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) ** 2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Distancia en metros
-}
-
 function obtenerUbicacionYRegistrar() {
     const refLatitude = 13.778944;
     const refLongitude = -89.1715584;
-    const tolerance = 55; // Tolerancia en metros
+    const tolerance = 0.0001; // Aproximadamente 11 metros (más preciso que 0.0002)
 
     if ("geolocation" in navigator) {
-        alert("Obteniendo ubicación. Por favor, espera...");
+        mostrarMensaje("Obteniendo ubicación, espera...", "info");
+
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const { latitude, longitude } = position.coords;
-                console.log("Coordenadas obtenidas:", position.coords);
+                const { latitude, longitude, accuracy } = position.coords;
+                console.log(`Latitud: ${latitude}, Longitud: ${longitude}, Precisión: ${accuracy}m`);
 
-                // Imprime las coordenadas de referencia para comparar
-                console.log(`Referencia: lat: ${refLatitude}, lon: ${refLongitude}`);
-                console.log(`Detectado: lat: ${latitude}, lon: ${longitude}`);
+                // Verifica que la precisión de la ubicación sea aceptable
+                if (accuracy > 20) { // Aceptar solo ubicaciones con precisión menor a 20 metros
+                    mostrarMensaje("Ubicación poco precisa, intenta nuevamente.", "error");
+                    return;
+                }
 
-                const distancia = calcularDistancia(latitude, longitude, refLatitude, refLongitude);
-                console.log(`Distancia calculada: ${distancia.toFixed(2)} metros`);
+                // Verifica si la ubicación está dentro del rango permitido
+                const isNearby = (
+                    Math.abs(latitude - refLatitude) <= tolerance &&
+                    Math.abs(longitude - refLongitude) <= tolerance
+                );
 
-                if (distancia <= tolerance) {
+                if (isNearby) {
                     registrarAsistencia();
                 } else {
-                    alert(`Ubicación inválida. Estás a ${distancia.toFixed(2)} metros del punto permitido. lat: ${latitude}, lon: ${longitude}`);
-                    setTimeout(() => {
-                        window.location.href = "employee.html";
-                    }, 3000);
+                    mostrarMensaje("Ubicación inválida. Debes estar en la zona correcta.", "error");
+                    setTimeout(() => window.location.href = "employee.html", 3000);
                 }
             },
             (error) => {
@@ -92,29 +87,26 @@ function obtenerUbicacionYRegistrar() {
                         mensajeError = "Tiempo de espera agotado. Intenta de nuevo.";
                         break;
                 }
-                alert(mensajeError);
-                console.error(mensajeError);
+                mostrarMensaje(mensajeError, "error");
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } // Timeout aumentado a 15s
         );
     } else {
-        alert("Geolocalización no soportada en este navegador.");
-        console.error("La geolocalización no es soportada en este navegador.");
+        mostrarMensaje("Geolocalización no soportada en este navegador.", "error");
     }
 }
 
 // Función que maneja los errores de escaneo
 function onScanError(errorMessage) {
     if (errorMessage.includes("File input")) {
-        alert("Por favor, usa la cámara para escanear el código QR.");
+        mostrarMensaje("Por favor, usa la cámara para escanear el código QR.");
         html5QrcodeScanner.clear().then(() => {
             html5QrcodeScanner.render(onScanSuccess, onScanError);
-        }).catch((error) => {
-            console.error("Error al reiniciar el escáner", error);
-        });
+        }).catch((error) => console.error("Error al reiniciar el escáner", error));
     }
 }
 
+// Configuración del escáner
 var html5QrcodeScanner = new Html5QrcodeScanner(
     "reader",
     {
@@ -126,20 +118,18 @@ var html5QrcodeScanner = new Html5QrcodeScanner(
     false
 );
 
+// Inicia el escáner solo con la cámara
 html5QrcodeScanner.render(onScanSuccess, onScanError);
 
+// Prevención de carga de archivos (imagen)
 document.addEventListener('DOMContentLoaded', function () {
     const fileInput = document.querySelector('input[type="file"]');
     if (fileInput) {
-        fileInput.setAttribute('disabled', true);
-        fileInput.addEventListener('click', function () {
-            alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
-            window.location.href = "employee.html";
-        });
+        fileInput.style.display = "none";
     }
 });
 
-// Función para registrar asistencia en Firestore
+// Función para registrar la asistencia en Firebase Firestore
 async function registrarAsistencia() {
     const user = auth.currentUser;
     if (!user) return;
@@ -152,6 +142,7 @@ async function registrarAsistencia() {
         const asistenciaQuery = await db.collection("asistencias")
             .where("userId", "==", user.uid)
             .where("fecha", "==", fechaHoy)
+            .orderBy("time", "desc")
             .get();
 
         const scanCount = asistenciaQuery.size;
@@ -172,7 +163,7 @@ async function registrarAsistencia() {
             .limit(1)
             .get();
         if (!empleadoQuery.empty) {
-            nombreEmpleado = empleadoQuery.docs[0].data().nombre;
+            nombreEmpleado = empleadoQuery.docs[0].data().nombre || user.email;
         }
 
         await db.collection("asistencias").add({
@@ -189,9 +180,10 @@ async function registrarAsistencia() {
             ? `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`
             : `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
 
-        document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
+        mostrarMensaje(message, "success");
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
+        mostrarMensaje("Error al registrar asistencia. Inténtalo nuevamente.", "error");
     }
 }
 
@@ -199,9 +191,7 @@ async function registrarAsistencia() {
 document.addEventListener("DOMContentLoaded", function () {
     const logoutButton = document.getElementById("logout-button");
     if (logoutButton) {
-        logoutButton.addEventListener("click", function () {
-            logout();
-        });
+        logoutButton.addEventListener("click", logout);
     } else {
         console.error("El botón de cerrar sesión no se encontró en el DOM.");
     }
