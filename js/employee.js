@@ -2,15 +2,23 @@
 
 // Verifica que el usuario esté autenticado y tenga rol "empleado"
 checkUserAuth(async function (user) {
-    const role = await getUserRole(user);
-    if (role !== "empleado") {
+    if (!user) {
         window.location.href = "index.html";
         return;
+    }
+    try {
+        const role = await getUserRole(user);
+        if (role !== "empleado") {
+            window.location.href = "index.html";
+        }
+    } catch (error) {
+        console.error("Error al obtener el rol del usuario:", error);
+        window.location.href = "index.html";
     }
 });
 
 // Función que se ejecuta cuando se detecta un código QR exitosamente
-function onScanSuccess(decodedText, decodedResult) {
+function onScanSuccess(decodedText) {
     if (decodedText !== "J.M Asociados") {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
@@ -27,7 +35,7 @@ function onScanSuccess(decodedText, decodedResult) {
     }
 }
 
-// Función para calcular la distancia entre dos coordenadas (Haversine)
+// Función para calcular la distancia entre dos coordenadas usando Haversine
 function calcularDistancia(lat1, lon1, lat2, lon2) {
     const R = 6371e3; // Radio de la Tierra en metros
     const φ1 = lat1 * Math.PI / 180;
@@ -35,17 +43,17 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
     const Δφ = (lat2 - lat1) * Math.PI / 180;
     const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    const a = Math.sin(Δφ / 2) ** 2 +
               Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+              Math.sin(Δλ / 2) ** 2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distancia en metros
 }
 
 function obtenerUbicacionYRegistrar() {
-    const refLatitude = 13.6230319;
-    const refLongitude = -87.8959763;
+    const refLatitude = 13.778944;
+    const refLongitude = -89.1715584;
     const tolerance = 55; // Tolerancia en metros
 
     if ("geolocation" in navigator) {
@@ -53,7 +61,11 @@ function obtenerUbicacionYRegistrar() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                console.log(`Latitud detectada: ${latitude}, Longitud detectada: ${longitude}`);
+                console.log("Coordenadas obtenidas:", position.coords);
+
+                // Imprime las coordenadas de referencia para comparar
+                console.log(`Referencia: lat: ${refLatitude}, lon: ${refLongitude}`);
+                console.log(`Detectado: lat: ${latitude}, lon: ${longitude}`);
 
                 const distancia = calcularDistancia(latitude, longitude, refLatitude, refLongitude);
                 console.log(`Distancia calculada: ${distancia.toFixed(2)} metros`);
@@ -108,9 +120,7 @@ var html5QrcodeScanner = new Html5QrcodeScanner(
     {
         fps: 10,
         qrbox: 250,
-        videoConstraints: {
-            facingMode: "environment"
-        },
+        videoConstraints: { facingMode: "environment" },
         useFileInput: false
     },
     false
@@ -149,13 +159,9 @@ async function registrarAsistencia() {
 
         let status = "";
         if (tipo === "entrada") {
-            if (hour < 8) {
-                status = "Llegada temprana";
-            } else if (hour >= 8 && hour < 16) {
-                status = "Llegada tarde";
-            } else {
-                status = "Hora de entrada fuera de horario";
-            }
+            if (hour < 8) status = "Llegada temprana";
+            else if (hour >= 8 && hour < 16) status = "Llegada tarde";
+            else status = "Hora de entrada fuera de horario";
         } else {
             status = (hour < 16) ? "Salida temprana" : "Salida";
         }
@@ -179,12 +185,10 @@ async function registrarAsistencia() {
             status: status
         });
 
-        let message = "";
-        if (tipo === "entrada") {
-            message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-        } else {
-            message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-        }
+        let message = (tipo === "entrada")
+            ? `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`
+            : `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
+
         document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
