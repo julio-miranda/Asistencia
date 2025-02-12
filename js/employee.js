@@ -64,7 +64,7 @@ function obtenerUbicacionYRegistrar() {
                 console.log("Coordenadas obtenidas:", position.coords);
 
                 // Imprime las coordenadas de referencia para comparar
-                document.getElementById("qr-result").textContent=(`Referencia: lat: ${refLatitude}, lon: ${refLongitude}`);
+                console.log(`Referencia: lat: ${refLatitude}, lon: ${refLongitude}`);
                 console.log(`Detectado: lat: ${latitude}, lon: ${longitude}`);
 
                 const distancia = calcularDistancia(latitude, longitude, refLatitude, refLongitude);
@@ -73,7 +73,7 @@ function obtenerUbicacionYRegistrar() {
                 if (distancia <= tolerance) {
                     registrarAsistencia();
                 } else {
-                    alert(`Ubicación inválida. Estás a ${distancia.toFixed(2)} metros del punto permitido.`);
+                    alert(`Ubicación inválida. Estás a ${distancia.toFixed(2)} metros del punto permitido. lat: ${refLatitude}, lon: ${refLongitude}`);
                     setTimeout(() => {
                         window.location.href = "employee.html";
                     }, 3000);
