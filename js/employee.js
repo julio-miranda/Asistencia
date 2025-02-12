@@ -47,7 +47,7 @@ function onScanSuccess(decodedText) {
 function obtenerUbicacionYRegistrar() {
     const refLatitude = 13.778944;
     const refLongitude = -89.1715584;
-    const tolerance = 0.0002; // Aproximadamente 22 metros
+    const tolerance = 0.002; // Aproximadamente 22 metros
 
     if ("geolocation" in navigator) {
         mostrarMensaje("Obteniendo ubicación, espera...", "info");
