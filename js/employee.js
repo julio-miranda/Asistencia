@@ -16,23 +16,36 @@ function onScanSuccess(decodedText, decodedResult) {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
     }
+
     // Detiene el escáner y registra la asistencia
     html5QrcodeScanner.clear().then(() => {
-        //Latitud: 13.778944, Longitud: -89.1715584
+        // Latitud y Longitud de referencia
+        const refLatitude = 13.778944;
+        const refLongitude = -89.1715584;
+        const tolerance = 0.0001; // Rango de tolerancia para errores de precisión
+
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const { latitude, longitude } = position.coords;
                     console.log(`Latitud: ${latitude}, Longitud: ${longitude}`);
-                    if (latitude !== 13.778944 && longitude !== -89.1715584) {
-                        window.location.href = "employee.html";
-                    }else{
+
+                    // Verifica si la ubicación está dentro del rango permitido
+                    const isNearby = (
+                        Math.abs(latitude - refLatitude) <= tolerance &&
+                        Math.abs(longitude - refLongitude) <= tolerance
+                    );
+
+                    if (isNearby) {
                         registrarAsistencia();
+                    } else {
+                        window.location.href = "employee.html";
                     }
                 },
                 (error) => {
                     console.error("Error obteniendo la ubicación:", error.message);
-                }
+                },
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 } // Opciones para mayor precisión
             );
         } else {
             console.error("La geolocalización no es soportada en este navegador.");
