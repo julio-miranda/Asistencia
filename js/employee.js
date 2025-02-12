@@ -44,8 +44,8 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
 }
 
 function obtenerUbicacionYRegistrar() {
-    const refLatitude = 13.778944;
-    const refLongitude = -89.1715584;
+    const refLatitude = 13.621621621621621;
+    const refLongitude = -87.8957374866816;
     const tolerance = 55; // Tolerancia en metros
 
     if ("geolocation" in navigator) {
