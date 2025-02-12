@@ -64,7 +64,7 @@ function obtenerUbicacionYRegistrar() {
                 console.log("Coordenadas obtenidas:", position.coords);
 
                 // Imprime las coordenadas de referencia para comparar
-                alert(`Referencia: lat: ${refLatitude}, lon: ${refLongitude}`);
+                document.getElementById("qr-result").textContent=(`Referencia: lat: ${refLatitude}, lon: ${refLongitude}`);
                 console.log(`Detectado: lat: ${latitude}, lon: ${longitude}`);
 
                 const distancia = calcularDistancia(latitude, longitude, refLatitude, refLongitude);
