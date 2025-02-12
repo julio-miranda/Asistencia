@@ -18,7 +18,25 @@ function onScanSuccess(decodedText, decodedResult) {
     }
     // Detiene el escáner y registra la asistencia
     html5QrcodeScanner.clear().then(() => {
-        registrarAsistencia();
+        //Latitud: 13.778944, Longitud: -89.1715584
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    console.log(`Latitud: ${latitude}, Longitud: ${longitude}`);
+                    if (latitude !== 13.778944 && longitude !== -89.1715584) {
+                        window.location.href = "employee.html";
+                    }else{
+                        registrarAsistencia();
+                    }
+                },
+                (error) => {
+                    console.error("Error obteniendo la ubicación:", error.message);
+                }
+            );
+        } else {
+            console.error("La geolocalización no es soportada en este navegador.");
+        }
     }).catch((error) => {
         console.error("Error al detener el escáner", error);
     });
@@ -141,10 +159,10 @@ async function registrarAsistencia() {
 }
 
 // Evento para cerrar sesión
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
     const logoutButton = document.getElementById("logout-button");
     if (logoutButton) {
-        logoutButton.addEventListener("click", function() {
+        logoutButton.addEventListener("click", function () {
             logout();
         });
     } else {
