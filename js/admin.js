@@ -418,18 +418,38 @@ function formatDate(dateObj) {
     return `${year}-${mes}-${dia}`;
 }
 
-// Evento para menú hamburguesa (responsive)
+// Variable global para almacenar el id de la sección que estaba visible antes de abrir el menú
+let currentVisibleSectionId = null;
+
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("menu-toggle").addEventListener("click", function () {
-        const navbarLinks = document.getElementById("navbar-links");
+    const menuToggle = document.getElementById("menu-toggle");
+    const navbarLinks = document.getElementById("navbar-links");
+
+    menuToggle.addEventListener("click", function () {
         const isActive = navbarLinks.classList.contains("active");
 
-        navbarLinks.classList.toggle("active");
-
         if (!isActive) {
-            document.querySelector(".form-container").style.display = 'none';
-            document.getElementById("tabla-empleados").style.display = "none";
-            document.getElementById("tabla-asistencias").style.display = "none";
+            // Al abrir el menú, recorremos todas las secciones para detectar la visible
+            const sections = document.querySelectorAll(".form-container, .tabla-container, .planilla-container");
+            sections.forEach(section => {
+                // Usamos getComputedStyle para asegurar que obtenemos el valor real de 'display'
+                if (window.getComputedStyle(section).display !== "none") {
+                    // Guardamos el id de la sección visible
+                    currentVisibleSectionId = section.id;
+                    // Ocultamos la sección
+                    section.style.display = "none";
+                }
+            });
+            // Mostramos el menú a pantalla completa
+            navbarLinks.classList.add("active");
+        } else {
+            // Al cerrar el menú, quitamos la clase 'active'
+            navbarLinks.classList.remove("active");
+            // Restauramos la sección que estaba visible (si se almacenó)
+            if (currentVisibleSectionId) {
+                document.getElementById(currentVisibleSectionId).style.display = "block";
+                currentVisibleSectionId = null;
+            }
         }
     });
 });

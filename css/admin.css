@@ -5,7 +5,11 @@ body {
     padding: 0;
     background-color: #f4f4f4;
 }
-.form-container, .tabla-container, .planilla-container, .dataTables_wrapper {
+
+.form-container,
+.tabla-container,
+.planilla-container,
+.dataTables_wrapper {
     margin: 10px;
 }
 
@@ -58,7 +62,8 @@ nav ul li a:hover {
 }
 
 /* Botones */
-button, .imprimir-btn {
+button,
+.imprimir-btn {
     background-color: #007bff;
     color: white;
     padding: 10px 15px;
@@ -91,7 +96,8 @@ table {
     overflow: hidden;
 }
 
-th, td {
+th,
+td {
     padding: 12px;
     border: 1px solid #ddd;
     text-align: center;
@@ -104,7 +110,8 @@ th {
 }
 
 /* Alineación específica para la tabla de asistencias */
-#asistenciasTable th, #asistenciasTable td {
+#asistenciasTable th,
+#asistenciasTable td {
     text-align: center;
     vertical-align: middle;
 }
@@ -119,7 +126,7 @@ th {
     margin: 10px 0 5px;
 }
 
-.form-container input, 
+.form-container input,
 .form-container textarea {
     padding: 8px;
     margin-bottom: 15px;
@@ -144,7 +151,9 @@ th {
 /* Responsive */
 @media (max-width: 768px) {
     nav {
-        width: 100%;
+        display: flex;
+        align-items: center;
+        /* Centra verticalmente los elementos */
     }
 
     nav ul {
@@ -164,13 +173,16 @@ th {
         width: 100%;
         text-align: center;
         background-color: #007bff;
-        position: absolute;
+        position: fixed;
         top: 80px;
         left: 0;
         width: 100%;
         padding: 10px 0;
         border-radius: 0 0 10px 10px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        height: 100%;
+        z-index: 9999;
+        overflow-y: auto;
     }
 
     #navbar-links.active {
@@ -217,10 +229,17 @@ th {
     }
 
     #menu-toggle {
+        margin-left: auto;
+        /* Empuja el botón hasta el final (derecha) */
+    }
+
+    #menu-toggle {
         display: block;
         background-color: #4CAF50;
-        font-size: 1.8rem;
-        cursor: pointer;
         transition: transform 0.3s ease;
+        font-size: 24px;
+        background: none;
+        border: none;
+        cursor: pointer;
     }
 }
