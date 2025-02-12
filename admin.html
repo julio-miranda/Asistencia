@@ -6,91 +6,83 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Panel de Administración</title>
     <link rel="stylesheet" href="css/admin.css">
-    <!-- DataTables CSS y jQuery -->
+    <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 </head>
 
 <body>
-
+    <!-- Menú de navegación -->
     <nav>
         <div id="navbar-links">
             <ul id="menu">
                 <li><a href="#" onclick="mostrarTabla('empleados')">Empleados</a></li>
                 <li><a href="#" onclick="mostrarTabla('asistencias')">Asistencias</a></li>
                 <li><a href="#" onclick="verPerfil()">Ver Mi Perfil</a></li>
+                <li><a href="#" onclick="mostrarPlanilla()">Planilla Semanal</a></li>
                 <li><button id="logout-button">Cerrar Sesión</button></li>
             </ul>
         </div>
         <button id="menu-toggle" class="hamburger">&#9776;</button>
     </nav>
 
-    <!-- Contenedor para el formulario de editar perfil -->
+    <!-- Formulario de editar perfil -->
     <div id="perfil-container" class="form-container" style="display: none;">
         <h2>Editar Perfil</h2>
         <form id="perfil-form">
             <label for="nombre">Nombre</label>
             <input type="text" id="nombre" name="nombre" required>
-
             <label for="email">Email</label>
             <input type="email" id="email" name="email" required>
-
             <label for="identificacion">Identificación</label>
             <input type="text" id="identificacion" name="identificacion" required>
-
             <label for="nacimiento">Fecha de Nacimiento</label>
             <input type="date" id="nacimiento" name="nacimiento" required>
-
+            <label for="empleado-salario">Salario por Hora</label>
+            <input type="number" id="empleado-salario" name="salario" required>
             <label for="descripcionp">Descripción</label>
             <textarea id="descripcionp" name="descripcionp"></textarea>
-
-            <label for="cambiar-contrasena">
+            <label>
                 <input type="checkbox" id="cambiar-contrasena"> Cambiar Contraseña
             </label>
             <div id="nueva-contrasena-container" style="display: none;">
                 <label for="nueva-contrasena">Nueva Contraseña</label>
                 <input type="password" id="nueva-contrasena" name="nueva-contrasena">
             </div>
-
             <div style="display: flex; justify-content: space-around;">
-                <button type="submit" style="background-color: green; width: 50%; display: inline-block;">Guardar
-                    Empleado</button>
-                <button type="button" style="background-color: red; width: 50%; display: inline-block;"
+                <button type="submit" style="background-color: green; width: 50%;">Guardar Empleado</button>
+                <button type="button" style="background-color: red; width: 50%;"
                     onclick="cancelarFormulario()">Cancelar</button>
             </div>
         </form>
     </div>
 
-    <!-- Contenedor para el formulario de agregar/editar empleado -->
+    <!-- Formulario para agregar/editar empleado -->
     <div id="empleado-container" class="form-container" style="display: none;">
         <h2 id="titulo-form-empleado">Agregar Empleado</h2>
         <form id="empleado-form">
             <label for="empleado-nombre">Nombre</label>
             <input type="text" id="empleado-nombre" name="nombre" required>
-
             <label for="empleado-email">Email</label>
             <input type="email" id="empleado-email" name="email" required>
-
             <label for="empleado-identificacion">Identificación</label>
             <input type="number" id="empleado-identificacion" name="identificacion" required>
-
+            <label for="empleado-salario">Salario por Hora</label>
+            <input type="number" id="empleado-salario" name="salario" required>
             <label for="empleado-nacimiento">Fecha de Nacimiento</label>
             <input type="date" id="empleado-nacimiento" name="nacimiento" required>
-
             <label for="descripcion">Descripción</label>
             <textarea id="descripcion" name="descripcion"></textarea>
-
             <input type="password" id="register-password" placeholder="Contraseña" required>
             <input type="password" id="register-password2" placeholder="Confirmar Contraseña" required>
-
             <div style="display: flex; justify-content: space-around;">
-                <button type="submit" style="background-color: green; width: 50%; display: inline-block;">Guardar
-                    Empleado</button>
-                <button type="button" style="background-color: red; width: 50%; display: inline-block;"
+                <button type="submit" style="background-color: green; width: 50%;">Guardar Empleado</button>
+                <button type="button" style="background-color: red; width: 50%;"
                     onclick="cancelarFormulario()">Cancelar</button>
             </div>
         </form>
     </div>
 
+    <!-- Tabla de Empleados -->
     <div id="tabla-empleados" class="tabla-container">
         <h2>Gestión de Empleados</h2>
         <button onclick="agregarEmpleado()">Agregar Empleado</button>
@@ -108,6 +100,7 @@
         </table>
     </div>
 
+    <!-- Tabla de Asistencias -->
     <div id="tabla-asistencias" class="tabla-container" style="display: none;">
         <h2>Control de Asistencias</h2>
         <table id="asistenciasTable" class="display nowrap" style="width:100%">
@@ -126,6 +119,29 @@
         </table>
     </div>
 
+    <!-- Plantilla para la Planilla Semanal (oculta por defecto) -->
+    <div id="planilla-container" class="planilla-container" style="display: none;">
+        <h2>Planilla Semanal</h2>
+        <!-- Botón para imprimir la planilla -->
+        <button class="imprimir-btn" onclick="imprimirPlanilla()">Imprimir Planilla</button>
+        <div class="table-responsive">
+            <table id="planillaTable" class="display nowrap" style="width:100%; margin-top:20px;">
+                <thead>
+                    <tr>
+                        <th>Empleado</th>
+                        <th>Identificación</th>
+                        <th>Horas Normales</th>
+                        <th>Horas Extras</th>
+                        <th>Total Horas</th>
+                        <th>Total a Pagar</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Inclusión de librerías y scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>

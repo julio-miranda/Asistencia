@@ -5,6 +5,9 @@ body {
     padding: 0;
     background-color: #f4f4f4;
 }
+.form-container, .tabla-container, .planilla-container, .dataTables_wrapper {
+    margin: 10px;
+}
 
 /* Navbar */
 nav {
@@ -41,13 +44,21 @@ nav ul li a:hover {
 }
 
 /* Contenedores */
-.tabla-container {
+.container {
     margin: 20px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
 
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
 }
 
 /* Botones */
-button {
+button, .imprimir-btn {
     background-color: #007bff;
     color: white;
     padding: 10px 15px;
@@ -62,6 +73,15 @@ button:hover {
     background-color: #0056b3;
 }
 
+.imprimir-btn {
+    background-color: #28a745;
+    margin-bottom: 15px;
+}
+
+.imprimir-btn:hover {
+    background-color: #218838;
+}
+
 /* Estilos de las tablas */
 table {
     width: 100%;
@@ -71,100 +91,36 @@ table {
     overflow: hidden;
 }
 
-th,
-td {
-    width: auto;
+th, td {
     padding: 12px;
     border: 1px solid #ddd;
     text-align: center;
+    white-space: nowrap;
 }
 
 th {
-    width: auto;
     background-color: #007bff;
     color: white;
 }
 
-/* Alinear el contenido de las celdas y evitar que se rompa la línea */
-#asistenciasTable th,
-#asistenciasTable td {
+/* Alineación específica para la tabla de asistencias */
+#asistenciasTable th, #asistenciasTable td {
     text-align: center;
     vertical-align: middle;
-    white-space: nowrap;
 }
 
-/* Anchos específicos para cada columna */
-#asistenciasTable .col-emp {
-    width: auto;
-}
-
-#asistenciasTable .col-fecha {
-    width: auto;
-}
-
-#asistenciasTable .col-scan {
-    width: auto;
-}
-
-#asistenciasTable .col-tipo {
-    width: auto;
-}
-
-#asistenciasTable .col-hora {
-    width: auto;
-}
-
-#asistenciasTable .col-status {
-    width: auto;
-}
-
-#asistenciasTable .col-acciones {
-    width: auto;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-
-    nav {
-        width: 100%;
-    }
-
-    nav ul {
-        margin: 0;
-        width: auto;
-        flex-direction: row;
-    }
-
-    nav ul li {
-        margin: 0;
-        font-size: 15px;
-    }
-}
-
-/* Formulario de perfil */
-/* Estilos para el formulario de editar perfil */
-.form-container {
-    margin: 20px;
-    background: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
+/* Formulario */
 .form-container form {
     display: flex;
     flex-direction: column;
 }
 
-.form-container label,
-#nueva-contrasena-container label {
-    width: auto;
+.form-container label {
     margin: 10px 0 5px;
 }
 
-.form-container input,
-.form-container textarea,
-#nueva-contrasena-container input {
+.form-container input, 
+.form-container textarea {
     padding: 8px;
     margin-bottom: 15px;
     border: 1px solid #ddd;
@@ -175,20 +131,7 @@ th {
     width: 99%;
 }
 
-.form-container button {
-    background-color: #007bff;
-    color: white;
-    padding: 10px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.form-container button:hover {
-    background-color: #0056b3;
-}
-
-/* Estilo para el botón de hamburguesa */
+/* Botón de menú hamburguesa */
 #menu-toggle {
     display: none;
     font-size: 24px;
@@ -198,8 +141,23 @@ th {
     cursor: pointer;
 }
 
-/* Estilos para pantallas pequeñas */
+/* Responsive */
 @media (max-width: 768px) {
+    nav {
+        width: 100%;
+    }
+
+    nav ul {
+        flex-direction: row;
+        width: auto;
+        margin: 0;
+    }
+
+    nav ul li {
+        margin: 0;
+        font-size: 15px;
+    }
+
     #navbar-links {
         display: none;
         flex-direction: column;
@@ -220,7 +178,6 @@ th {
     }
 
     #navbar-links ul {
-        display: flex;
         flex-direction: column;
         gap: 10px;
         padding: 0;
@@ -238,12 +195,10 @@ th {
         display: block;
         width: 100%;
         padding: 12px 0;
-        /* Ajuste de tamaño */
         text-align: center;
         color: white;
         text-decoration: none;
         font-size: clamp(1rem, 2vw, 1.3rem);
-        /* Ajuste dinámico del tamaño del texto */
         font-weight: bold;
         border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         transition: background 0.3s ease, color 0.3s ease;
@@ -264,8 +219,6 @@ th {
     #menu-toggle {
         display: block;
         background-color: #4CAF50;
-        border: none;
-        color: white;
         font-size: 1.8rem;
         cursor: pointer;
         transition: transform 0.3s ease;
