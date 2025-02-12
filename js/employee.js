@@ -39,6 +39,7 @@ function onScanSuccess(decodedText, decodedResult) {
                     if (isNearby) {
                         registrarAsistencia();
                     } else {
+                        alert("La localizacion es invalida");
                         window.location.href = "employee.html";
                     }
                 },
