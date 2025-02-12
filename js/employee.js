@@ -2,47 +2,61 @@
 
 // Verifica que el usuario esté autenticado y tenga rol "empleado"
 checkUserAuth(async function (user) {
-    const role = await getUserRole(user);
-    if (role !== "empleado") {
+    if (!user) {
         window.location.href = "index.html";
         return;
     }
+
+    try {
+        const role = await getUserRole(user);
+        if (role !== "empleado") {
+            window.location.href = "index.html";
+        }
+    } catch (error) {
+        console.error("Error al obtener el rol del usuario:", error);
+        window.location.href = "index.html";
+    }
 });
 
+// Función para mostrar mensajes en la UI en lugar de usar alert()
+function mostrarMensaje(mensaje, tipo = "error") {
+    const mensajeElemento = document.getElementById("mensaje-ubicacion");
+    if (mensajeElemento) {
+        mensajeElemento.innerText = mensaje;
+        mensajeElemento.className = tipo;  // Clases CSS como "error" o "success"
+    } else {
+        alert(mensaje); // Fallback si el elemento no existe
+    }
+}
+
 // Función que se ejecuta cuando se detecta un código QR exitosamente
-function onScanSuccess(decodedText, decodedResult) {
-    // Verifica que el texto escaneado sea el correcto
+function onScanSuccess(decodedText) {
     if (decodedText !== "J.M Asociados") {
-        alert("QR incorrecto. Intenta nuevamente.");
+        mostrarMensaje("QR incorrecto. Intenta nuevamente.");
         return;
     }
 
-    // Asegura que el escáner está definido antes de intentar limpiarlo
     if (typeof html5QrcodeScanner !== "undefined" && html5QrcodeScanner !== null) {
-        html5QrcodeScanner.clear().then(() => {
-            obtenerUbicacionYRegistrar();
-        }).catch((error) => {
-            console.error("Error al detener el escáner", error);
-        });
+        html5QrcodeScanner.clear().then(obtenerUbicacionYRegistrar)
+        .catch((error) => console.error("Error al detener el escáner", error));
     } else {
         obtenerUbicacionYRegistrar();
     }
 }
 
 function obtenerUbicacionYRegistrar() {
-    // Latitud y Longitud de referencia
     const refLatitude = 13.778944;
     const refLongitude = -89.1715584;
-    const tolerance = 0.0002; // Aumentamos la tolerancia a ~22 metros para más flexibilidad
+    const tolerance = 0.0002; // Aproximadamente 22 metros
 
     if ("geolocation" in navigator) {
-        alert("Obteniendo ubicación. Por favor, espera...");
+        mostrarMensaje("Obteniendo ubicación, espera...", "info");
+
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
                 console.log(`Latitud: ${latitude}, Longitud: ${longitude}`);
 
-                // Verifica si la ubicación está dentro del rango permitido
                 const isNearby = (
                     Math.abs(latitude - refLatitude) <= tolerance &&
                     Math.abs(longitude - refLongitude) <= tolerance
@@ -51,10 +65,8 @@ function obtenerUbicacionYRegistrar() {
                 if (isNearby) {
                     registrarAsistencia();
                 } else {
-                    alert("Ubicación inválida. Debes estar en la zona correcta para registrar asistencia.");
-                    setTimeout(() => {
-                        window.location.href = "employee.html";
-                    }, 3000); // Espera 3 segundos antes de redirigir
+                    mostrarMensaje("Ubicación inválida. Debes estar en la zona correcta.", "error");
+                    setTimeout(() => window.location.href = "employee.html", 3000);
                 }
             },
             (error) => {
@@ -70,130 +82,103 @@ function obtenerUbicacionYRegistrar() {
                         mensajeError = "Tiempo de espera agotado. Intenta de nuevo.";
                         break;
                 }
-                alert(mensajeError);
-                console.error(mensajeError);
+                mostrarMensaje(mensajeError, "error");
             },
-            { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 } // Se aumentó el timeout a 7s
+            { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
         );
     } else {
-        alert("Geolocalización no soportada en este navegador.");
-        console.error("La geolocalización no es soportada en este navegador.");
+        mostrarMensaje("Geolocalización no soportada en este navegador.", "error");
     }
 }
 
 // Función que maneja los errores de escaneo
 function onScanError(errorMessage) {
-    // No hacer nada si el error no está relacionado con un intento de cargar una imagen
     if (errorMessage.includes("File input")) {
-        alert("Por favor, usa la cámara para escanear el código QR.");
-        // Reinicia el escáner para que el usuario solo pueda usar la cámara
+        mostrarMensaje("Por favor, usa la cámara para escanear el código QR.");
         html5QrcodeScanner.clear().then(() => {
             html5QrcodeScanner.render(onScanSuccess, onScanError);
-        }).catch((error) => {
-            console.error("Error al reiniciar el escáner", error);
-        });
+        }).catch((error) => console.error("Error al reiniciar el escáner", error));
     }
 }
 
-// Configura el escáner en el contenedor "reader" usando la cámara, sin permitir cargar imágenes
+// Configuración del escáner
 var html5QrcodeScanner = new Html5QrcodeScanner(
     "reader",
     {
         fps: 10,
         qrbox: 250,
-        videoConstraints: {
-            facingMode: "environment"  // Usamos la cámara trasera del dispositivo
-        },
-        // Deshabilitamos la opción de importar archivos de imagen
+        videoConstraints: { facingMode: "environment" },
         useFileInput: false
     },
-    /* verbose= */ false
+    false
 );
 
 // Inicia el escáner solo con la cámara
 html5QrcodeScanner.render(onScanSuccess, onScanError);
 
-// Deshabilitar completamente la carga de archivos (imagen) a través de un evento
+// Prevención de carga de archivos (imagen)
 document.addEventListener('DOMContentLoaded', function () {
-    // Prevenir la carga de archivos (imagen) si se intenta
     const fileInput = document.querySelector('input[type="file"]');
     if (fileInput) {
-        fileInput.setAttribute('disabled', true);  // Deshabilitamos el campo de archivo
-        // Opcionalmente, podrías agregar un evento que muestre una alerta si se intenta cargar un archivo
-        fileInput.addEventListener('click', function () {
-            alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
-            window.location.href = "employee.html";
-        });
+        fileInput.style.display = "none";
     }
 });
 
-// Función para registrar la asistencia en Firebase Firestore, permitiendo múltiples entradas y salidas por día
+// Función para registrar la asistencia en Firebase Firestore
 async function registrarAsistencia() {
     const user = auth.currentUser;
     if (!user) return;
 
     const now = new Date();
     const hour = now.getHours();
-    // Se formatea la fecha en formato YYYY-MM-DD para agrupar los registros diarios
     const fechaHoy = now.toISOString().split("T")[0];
 
     try {
-        // Se consulta todos los registros de asistencia del usuario para el día de hoy
         const asistenciaQuery = await db.collection("asistencias")
             .where("userId", "==", user.uid)
             .where("fecha", "==", fechaHoy)
+            .orderBy("time", "desc")
             .get();
 
-        // Número de escaneos ya realizados en el día
         const scanCount = asistenciaQuery.size;
-        // Si el número de escaneos es par, se registra una entrada; si es impar, se registra una salida
         const tipo = (scanCount % 2 === 0) ? "entrada" : "salida";
 
-        // Determinar el estado según la hora y el tipo de registro
         let status = "";
         if (tipo === "entrada") {
-            if (hour < 8) {
-                status = "Llegada temprana";
-            } else if (hour >= 8 && hour < 16) {
-                status = "Llegada tarde";
-            } else {
-                status = "Hora de entrada fuera de horario";
-            }
-        } else { // salida
+            if (hour < 8) status = "Llegada temprana";
+            else if (hour >= 8 && hour < 16) status = "Llegada tarde";
+            else status = "Hora de entrada fuera de horario";
+        } else {
             status = (hour < 16) ? "Salida temprana" : "Salida";
         }
 
-        // Obtener el nombre del empleado desde la colección "usuarios"
-        let nombreEmpleado = user.email; // Por defecto se usa el email
+        let nombreEmpleado = user.email;
         const empleadoQuery = await db.collection("usuarios")
             .where("email", "==", user.email)
             .limit(1)
             .get();
         if (!empleadoQuery.empty) {
-            nombreEmpleado = empleadoQuery.docs[0].data().nombre;
+            nombreEmpleado = empleadoQuery.docs[0].data().nombre || user.email;
         }
 
-        // Agregar un nuevo documento en "asistencias" con los datos del escaneo
         await db.collection("asistencias").add({
             userId: user.uid,
             user: nombreEmpleado,
             fecha: fechaHoy,
             scanNumber: scanCount + 1,
             time: now.toLocaleTimeString(),
-            tipo: tipo,    // "entrada" o "salida"
+            tipo: tipo,
             status: status
         });
 
-        // Mostrar mensaje en el elemento "qr-result"
-        let message = "";
-        if (tipo === "entrada") {
-            message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-        } else {
-            message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-        }
-        document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
+        let message = (tipo === "entrada")
+            ? `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`
+            : `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
+
+        mostrarMensaje(message, "success");
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
+        mostrarMensaje("Error al registrar asistencia. Inténtalo nuevamente.", "error");
     }
 }
 
@@ -201,9 +186,7 @@ async function registrarAsistencia() {
 document.addEventListener("DOMContentLoaded", function () {
     const logoutButton = document.getElementById("logout-button");
     if (logoutButton) {
-        logoutButton.addEventListener("click", function () {
-            logout();
-        });
+        logoutButton.addEventListener("click", logout);
     } else {
         console.error("El botón de cerrar sesión no se encontró en el DOM.");
     }
