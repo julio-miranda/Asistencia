@@ -17,43 +17,68 @@ function onScanSuccess(decodedText, decodedResult) {
         return;
     }
 
-    // Detiene el escáner y registra la asistencia
-    html5QrcodeScanner.clear().then(() => {
-        // Latitud y Longitud de referencia
-        const refLatitude = 13.778944;
-        const refLongitude = -89.1715584;
-        const tolerance = 0.0001; // Rango de tolerancia para errores de precisión
+    // Asegura que el escáner está definido antes de intentar limpiarlo
+    if (typeof html5QrcodeScanner !== "undefined" && html5QrcodeScanner !== null) {
+        html5QrcodeScanner.clear().then(() => {
+            obtenerUbicacionYRegistrar();
+        }).catch((error) => {
+            console.error("Error al detener el escáner", error);
+        });
+    } else {
+        obtenerUbicacionYRegistrar();
+    }
+}
 
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    console.log(`Latitud: ${latitude}, Longitud: ${longitude}`);
+function obtenerUbicacionYRegistrar() {
+    // Latitud y Longitud de referencia
+    const refLatitude = 13.778944;
+    const refLongitude = -89.1715584;
+    const tolerance = 0.0002; // Aumentamos la tolerancia a ~22 metros para más flexibilidad
 
-                    // Verifica si la ubicación está dentro del rango permitido
-                    const isNearby = (
-                        Math.abs(latitude - refLatitude) <= tolerance &&
-                        Math.abs(longitude - refLongitude) <= tolerance
-                    );
+    if ("geolocation" in navigator) {
+        alert("Obteniendo ubicación. Por favor, espera...");
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                console.log(`Latitud: ${latitude}, Longitud: ${longitude}`);
 
-                    if (isNearby) {
-                        registrarAsistencia();
-                    } else {
-                        alert("La localizacion es invalida");
+                // Verifica si la ubicación está dentro del rango permitido
+                const isNearby = (
+                    Math.abs(latitude - refLatitude) <= tolerance &&
+                    Math.abs(longitude - refLongitude) <= tolerance
+                );
+
+                if (isNearby) {
+                    registrarAsistencia();
+                } else {
+                    alert("Ubicación inválida. Debes estar en la zona correcta para registrar asistencia.");
+                    setTimeout(() => {
                         window.location.href = "employee.html";
-                    }
-                },
-                (error) => {
-                    console.error("Error obteniendo la ubicación:", error.message);
-                },
-                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 } // Opciones para mayor precisión
-            );
-        } else {
-            console.error("La geolocalización no es soportada en este navegador.");
-        }
-    }).catch((error) => {
-        console.error("Error al detener el escáner", error);
-    });
+                    }, 3000); // Espera 3 segundos antes de redirigir
+                }
+            },
+            (error) => {
+                let mensajeError = "Error obteniendo la ubicación.";
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        mensajeError = "Permiso de ubicación denegado. Activa la ubicación e inténtalo de nuevo.";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        mensajeError = "Ubicación no disponible. Verifica tu GPS.";
+                        break;
+                    case error.TIMEOUT:
+                        mensajeError = "Tiempo de espera agotado. Intenta de nuevo.";
+                        break;
+                }
+                alert(mensajeError);
+                console.error(mensajeError);
+            },
+            { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 } // Se aumentó el timeout a 7s
+        );
+    } else {
+        alert("Geolocalización no soportada en este navegador.");
+        console.error("La geolocalización no es soportada en este navegador.");
+    }
 }
 
 // Función que maneja los errores de escaneo
