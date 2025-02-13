@@ -21,7 +21,7 @@ function mostrarMensaje(mensaje, tipo = "error") {
     const mensajeElemento = document.getElementById("mensaje-ubicacion");
     if (mensajeElemento) {
         mensajeElemento.innerText = mensaje;
-        mensajeElemento.className = tipo;  // Clases CSS como "error" o "success"
+        mensajeElemento.className = tipo;  // Clases CSS como "error", "info" o "success"
     } else {
         alert(mensaje); // Fallback si el elemento no existe
     }
@@ -35,8 +35,9 @@ function onScanSuccess(decodedText) {
     }
 
     if (typeof html5QrcodeScanner !== "undefined" && html5QrcodeScanner !== null) {
-        html5QrcodeScanner.clear().then(obtenerUbicacionYRegistrar)
-        .catch((error) => console.error("Error al detener el escáner", error));
+        html5QrcodeScanner.clear()
+            .then(obtenerUbicacionYRegistrar)
+            .catch((error) => console.error("Error al detener el escáner:", error));
     } else {
         obtenerUbicacionYRegistrar();
     }
@@ -45,7 +46,7 @@ function onScanSuccess(decodedText) {
 function obtenerUbicacionYRegistrar() {
     const refLatitude = 13.622925;
     const refLongitude = -87.895965;
-    const tolerance = 0.0001; // Aproximadamente 11 metros (más preciso que 0.0002)
+    const tolerance = 0.0001; // Aproximadamente 11 metros
 
     if ("geolocation" in navigator) {
         mostrarMensaje("Obteniendo ubicación, espera...", "info");
@@ -53,10 +54,10 @@ function obtenerUbicacionYRegistrar() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude, accuracy } = position.coords;
-                document.getElementById("resultado").innerText = `Latitud: ${latitude}, Longitud: ${longitude}, Precisión: ${accuracy}m`;
+                console.log(`Latitud: ${latitude}, Longitud: ${longitude}, Precisión: ${accuracy}m`);
 
-                // Verifica que la precisión de la ubicación sea aceptable
-                if (accuracy > 20) { // Aceptar solo ubicaciones con precisión menor a 20 metros
+                // Verifica que la precisión de la ubicación sea aceptable (menos de 20 metros)
+                if (accuracy > 20) {
                     mostrarMensaje("Ubicación poco precisa, intenta nuevamente.", "error");
                     return;
                 }
@@ -70,7 +71,7 @@ function obtenerUbicacionYRegistrar() {
                 if (isNearby) {
                     registrarAsistencia();
                 } else {
-                    //mostrarMensaje("Ubicación inválida. Debes estar en la zona correcta.", "error");
+                    mostrarMensaje("Ubicación inválida. Debes estar en la zona correcta.", "error");
                     setTimeout(() => window.location.href = "employee.html", 3000);
                 }
             },
@@ -88,8 +89,9 @@ function obtenerUbicacionYRegistrar() {
                         break;
                 }
                 mostrarMensaje(mensajeError, "error");
+                console.error(mensajeError, error);
             },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } // Timeout aumentado a 15s
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
     } else {
         mostrarMensaje("Geolocalización no soportada en este navegador.", "error");
@@ -102,7 +104,7 @@ function onScanError(errorMessage) {
         mostrarMensaje("Por favor, usa la cámara para escanear el código QR.");
         html5QrcodeScanner.clear().then(() => {
             html5QrcodeScanner.render(onScanSuccess, onScanError);
-        }).catch((error) => console.error("Error al reiniciar el escáner", error));
+        }).catch((error) => console.error("Error al reiniciar el escáner:", error));
     }
 }
 
@@ -132,13 +134,17 @@ document.addEventListener('DOMContentLoaded', function () {
 // Función para registrar la asistencia en Firebase Firestore
 async function registrarAsistencia() {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) {
+        mostrarMensaje("No se encontró usuario autenticado.", "error");
+        return;
+    }
 
     const now = new Date();
     const hour = now.getHours();
     const fechaHoy = now.toISOString().split("T")[0];
 
     try {
+        console.log("Consultando asistencias para:", user.uid, fechaHoy);
         const asistenciaQuery = await db.collection("asistencias")
             .where("userId", "==", user.uid)
             .where("fecha", "==", fechaHoy)
@@ -158,6 +164,7 @@ async function registrarAsistencia() {
         }
 
         let nombreEmpleado = user.email;
+        console.log("Consultando nombre del empleado para:", user.email);
         const empleadoQuery = await db.collection("usuarios")
             .where("email", "==", user.email)
             .limit(1)
@@ -165,6 +172,16 @@ async function registrarAsistencia() {
         if (!empleadoQuery.empty) {
             nombreEmpleado = empleadoQuery.docs[0].data().nombre || user.email;
         }
+
+        console.log("Registrando asistencia:", {
+            userId: user.uid,
+            user: nombreEmpleado,
+            fecha: fechaHoy,
+            scanNumber: scanCount + 1,
+            time: now.toLocaleTimeString(),
+            tipo: tipo,
+            status: status
+        });
 
         await db.collection("asistencias").add({
             userId: user.uid,
@@ -183,7 +200,8 @@ async function registrarAsistencia() {
         mostrarMensaje(message, "success");
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
-        mostrarMensaje("Error al registrar asistencia. Inténtalo nuevamente.", "error");
+        // Si el error indica que falta un índice, Firestore lo indicará en la consola con un enlace.
+        mostrarMensaje("Error al registrar asistencia. Inténtalo nuevamente. " + error.message, "error");
     }
 }
 
