@@ -53,7 +53,7 @@ function obtenerUbicacionYRegistrar() {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude, accuracy } = position.coords;
-                document.getElementById("resultado").innerText = (`Latitud: ${latitude}, Longitud: ${longitude}, Precisión: ${accuracy}m`);
+                document.getElementById("resultado").innerText = `Latitud: ${latitude}, Longitud: ${longitude}, Precisión: ${accuracy}m`;
 
                 // Verifica que la precisión de la ubicación sea aceptable
                 if (accuracy > 20) { // Aceptar solo ubicaciones con precisión menor a 20 metros
