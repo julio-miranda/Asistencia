@@ -5,44 +5,44 @@ const allowedRadius = 10;         // Radio permitido en metros
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
 function calcularDistancia(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // Radio de la Tierra en metros
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
+    const R = 6371e3; // Radio de la Tierra en metros
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  return R * c; // Distancia en metros
+    return R * c; // Distancia en metros
 }
 
 // Función que verifica la ubicación actual del usuario
 function checkLocation(successCallback, errorCallback) {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        const currentLat = position.coords.latitude;
-        const currentLng = position.coords.longitude;
-        const distance = calcularDistancia(allowedLat, allowedLng, currentLat, currentLng);
-        // Verifica si la distancia está dentro del radio permitido
-        if (distance <= allowedRadius) {
-          successCallback();
-        } else {
-          errorCallback(distance);
-        }
-      },
-      error => {
-        console.error("Error al obtener la ubicación:", error);
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                const currentLat = position.coords.latitude;
+                const currentLng = position.coords.longitude;
+                const distance = calcularDistancia(allowedLat, allowedLng, currentLat, currentLng);
+                // Verifica si la distancia está dentro del radio permitido
+                if (distance <= allowedRadius) {
+                    successCallback();
+                } else {
+                    errorCallback(distance);
+                }
+            },
+            error => {
+                console.error("Error al obtener la ubicación:", error);
+                errorCallback();
+            }
+        );
+    } else {
+        alert("La geolocalización no está soportada por este navegador.");
         errorCallback();
-      }
-    );
-  } else {
-    alert("La geolocalización no está soportada por este navegador.");
-    errorCallback();
-  }
+    }
 }
 
 // Verifica que el usuario esté autenticado y tenga rol "empleado"
@@ -53,35 +53,47 @@ checkUserAuth(async function (user) {
         return;
     }
 });
+// Bandera para evitar múltiples procesamientos
+let scanProcesado = false;
 
-// Función que se ejecuta cuando se detecta un código QR exitosamente
 function onScanSuccess(decodedText, decodedResult) {
+    // Si ya se procesó un escaneo, se ignoran los siguientes
+    if (scanProcesado) return;
+
     // Verifica que el texto escaneado sea el correcto
     if (decodedText !== "J.M Asociados") {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
     }
-    
+
+    // Marca que el escaneo ya se procesó
+    scanProcesado = true;
+
     // Verifica la ubicación antes de proceder
     checkLocation(
-      function() {
-        // Si la ubicación es correcta, detiene el escáner y registra la asistencia
-        html5QrcodeScanner.clear().then(() => {
-            registrarAsistencia();
-        }).catch((error) => {
-            console.error("Error al detener el escáner", error);
-        });
-      },
-      function(distance) {
-        // Si la ubicación no es válida, muestra un mensaje y no procede con el registro
-        if (distance !== undefined) {
-          alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
-        } else {
-          alert("No se pudo verificar la ubicación. Intenta nuevamente.");
+        function () {
+            // Si la ubicación es correcta, detiene el escáner y registra la asistencia
+            html5QrcodeScanner.clear().then(() => {
+                registrarAsistencia();
+            }).catch((error) => {
+                console.error("Error al detener el escáner", error);
+                // En caso de error, reiniciamos la bandera para permitir reintentos
+                scanProcesado = false;
+            });
+        },
+        function (distance) {
+            // Si la ubicación no es válida, muestra un mensaje y no procede con el registro
+            if (distance !== undefined) {
+                alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
+            } else {
+                alert("No se pudo verificar la ubicación. Intenta nuevamente.");
+            }
+            // Reiniciamos la bandera para permitir reintentos
+            scanProcesado = false;
         }
-      }
     );
 }
+
 
 // Función que maneja los errores de escaneo
 function onScanError(errorMessage) {
@@ -200,10 +212,10 @@ async function registrarAsistencia() {
 }
 
 // Evento para cerrar sesión
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
     const logoutButton = document.getElementById("logout-button");
     if (logoutButton) {
-        logoutButton.addEventListener("click", function() {
+        logoutButton.addEventListener("click", function () {
             logout();
         });
     } else {
