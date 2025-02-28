@@ -148,6 +148,7 @@ function eliminarEmpleado(id) {
         // 2. Intentar eliminar al usuario de Authentication (solo si es el usuario actual)
         try {
             auth.get(id).delete();
+            console.log(auth.get());
             alert("El usuario también ha sido eliminado de la autenticación.");
             // 3. Recargar la tabla después de eliminar
             //cargarEmpleados();
