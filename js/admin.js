@@ -146,13 +146,22 @@ async function eliminarEmpleado(id) {
             // Eliminar el usuario de Firestore
             await db.collection("usuarios").doc(id).delete();
             
-            // Eliminar el usuario de Firebase Authentication
-            const user = await firebase.auth().getUserByEmail(email);
-            if (user) {
-                await firebase.auth().deleteUser(user.uid);
+            // Buscar el usuario por correo en Firebase Authentication
+            let userToDelete = null;
+            const listUsers = await firebase.auth().listUsers();
+            listUsers.users.forEach((user) => {
+                if (user.email === email) {
+                    userToDelete = user;
+                }
+            });
+
+            if (userToDelete) {
+                await firebase.auth().deleteUser(userToDelete.uid);
+                alert("Empleado eliminado correctamente");
+            } else {
+                alert("No se encontró un usuario con ese correo electrónico en Firebase Authentication");
             }
 
-            alert("Empleado eliminado correctamente");
             cargarEmpleados(); // Recargar la tabla de empleados
         } catch (error) {
             alert("Error al eliminar el empleado: " + error.message);
