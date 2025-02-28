@@ -145,7 +145,7 @@ async function eliminarEmpleado(id, email) {
 
             // 2. Intentar eliminar al usuario si está autenticado (solo si es el usuario actual)
             const user = firebase.auth().currentUser;
-            if (user && user.email === email) {
+            if (user && user.email == email) {
                 await user.delete();
                 alert("El usuario también ha sido eliminado de la autenticación.");
             } else {
