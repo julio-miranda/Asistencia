@@ -136,18 +136,18 @@ async function cargarAsistencias() {
 }
 
 // Función asíncrona para eliminar un empleado
-async function eliminarEmpleado(id) {
+function eliminarEmpleado(id) {
     // Confirmar eliminación
     if (!confirm("¿Estás seguro de eliminar este empleado?")) return;
 
     try {
         // 1. Eliminar el empleado de Firestore
-        await db.collection("usuarios").doc(id).delete();
+        db.collection("usuarios").doc(id).delete();
         alert("Empleado eliminado de la base de datos.");
 
         // 2. Intentar eliminar al usuario de Authentication (solo si es el usuario actual)
         try {
-            await auth.doc(id).delete();
+            auth.doc(id).delete();
             alert("El usuario también ha sido eliminado de la autenticación.");
             // 3. Recargar la tabla después de eliminar
             cargarEmpleados();
