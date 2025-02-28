@@ -145,14 +145,13 @@ async function eliminarEmpleado(id, email) {
 
             // 2. Intentar eliminar al usuario si está autenticado (solo si es el usuario actual)
             const user = firebase.auth().currentUser;
-            if (user && user.email == email) {
+            if (user.email === email) {
                 await user.delete();
                 alert("El usuario también ha sido eliminado de la autenticación.");
                 // 3. Recargar la tabla después de eliminar
                 cargarEmpleados();
             } else {
-                console.log(user.email);
-                //alert("El usuario ha sido eliminado de la base de datos, pero la cuenta de autenticación solo puede eliminarla un administrador desde Firebase Console.");
+                alert("El usuario ha sido eliminado de la base de datos, pero la cuenta de autenticación solo puede eliminarla un administrador desde Firebase Console.");
             }
         } catch (error) {
             alert("Error al eliminar el empleado: " + error.message);
