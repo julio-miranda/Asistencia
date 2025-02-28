@@ -1,32 +1,29 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Módulo Empleado - Control de Asistencia</title>
   <link rel="stylesheet" href="css/styles.css">
-  <!-- Biblioteca para escanear QR -->
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-</head>
-
-<body>
-  <div class="section">
-    <h2>Módulo Empleado</h2>
-    <p>Escanea el QR para registrar tu asistencia.</p>
-    <!-- Contenedor donde se renderiza el escáner -->
-    <div id="reader" style="width:300px;"></div>
-    <div id="qr-result"></div>
-    <div id="resultado"></div>
-    <button id="logout-button">Cerrar Sesión</button>
-  </div>
+  <!-- face-api.js -->
+  <script defer src="js/face-api.min.js"></script>
+  <!-- Firebase (versiones compatibles) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
   <!-- Configuración y funciones comunes -->
   <script src="js/firebase-config.js"></script>
   <script src="js/auth.js"></script>
+</head>
+<body>
+  <div class="section">
+    <h2>Módulo Empleado</h2>
+    <p>Verifica tu rostro para registrar tu asistencia.</p>
+    <video id="video" width="300" height="225" autoplay muted style="border:1px solid #ccc;"></video>
+    <button id="verify-face">Verificar Rostro</button>
+    <div id="result"></div>
+    <button id="logout-button">Cerrar Sesión</button>
+  </div>
   <script src="js/employee.js"></script>
 </body>
-
 </html>
