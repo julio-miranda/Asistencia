@@ -136,25 +136,26 @@ async function cargarAsistencias() {
 }
 
 // Función para eliminar un empleado
-async function eliminarEmpleado(id) {
-    if (!confirm("¿Estás seguro de eliminar este empleado?")) return;
-
-    try {
-        // 1. Eliminar el documento del empleado en Firestore.
-        await db.collection("usuarios").doc(id).delete();
-        alert("Empleado eliminado de la base de datos.");
-
-        // 2. Si el usuario autenticado es el mismo que se intenta eliminar, borrar su cuenta de Authentication.
-        if (auth.currentUser && auth.currentUser.uid === id) {
-            await auth.currentUser.delete();
-            alert("El usuario también ha sido eliminado de la autenticación.");
+function eliminarEmpleado(id) {
+    if (confirm("¿Estás seguro de eliminar este empleado?")) {
+        try {
+            // 1. Eliminar el usuario de Firestore
+            db.collection("usuarios").doc(id).delete().then(() => {
+                alert("Empleado eliminado de la base de datos.");
+                // 2. Intentar eliminar al usuario si está autenticado (solo si es el usuario actual)
+                auth.doc(id).delete().then(() => {
+                    alert("El usuario también ha sido eliminado de la autenticación.");
+                    // 3. Recargar la tabla después de eliminar
+                    cargarEmpleados();
+                }).catch((error) => {
+                    console.error("Error al eliminar usuario de Authentication:", error.message);
+                });
+            }).catch((error) => {
+                console.error("Error al eliminar empleado de Firestore:", error.message);
+            });
+        } catch (error) {
+            alert("Error al eliminar el empleado: " + error.message);
         }
-        
-        // 3. Recargar la tabla para mostrar la información actualizada.
-        cargarEmpleados();
-    } catch (error) {
-        console.error("Error al eliminar el empleado:", error);
-        alert("Error al eliminar el empleado: " + error.message);
     }
 }
 
