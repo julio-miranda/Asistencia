@@ -140,10 +140,10 @@ function eliminarEmpleado(id) {
     // Confirmar eliminación
     if (!confirm("¿Estás seguro de eliminar este empleado?")) return;
 
-    try {
+    /*try {
         // 1. Eliminar el empleado de Firestore
-        //db.collection("usuarios").doc(id).delete();
-        alert("Empleado eliminado de la base de datos.");
+        db.collection("usuarios").doc(id).delete();
+        alert("Empleado eliminado de la base de datos.");*/
 
         // 2. Intentar eliminar al usuario de Authentication (solo si es el usuario actual)
         try {
@@ -156,10 +156,10 @@ function eliminarEmpleado(id) {
             console.log(auth.get());
             console.error("Error al eliminar usuario de Authentication:", authError.message);
         }
-    } catch (error) {
+    /*} catch (error) {
         console.error("Error al eliminar empleado:", error.message);
         alert("Error al eliminar el empleado: " + error.message);
-    }
+    }*/
 }
 
 
