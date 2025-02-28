@@ -1,3 +1,29 @@
+// Verifica si el usuario está autenticado y tiene el rol "empleado"
+firebase.auth().onAuthStateChanged(async function(user) {
+    if (!user) {
+        // Si no está autenticado, redirige a la página de login
+        window.location.href = "index.html";
+        return;
+    }
+
+    // Consulta el rol del usuario en Firestore
+    const doc = await db.collection("usuarios").doc(user.uid).get();
+    if (doc.exists) {
+        const role = doc.data().role;
+        if (role == "admin") {
+            // Si el rol es "admin", redirige a otra página
+            window.location.href = "admin.html";
+        } else if(role !== "empleado"){
+            // Si el rol no es "empleado", redirige a otra página
+            window.location.href = "index.html";
+        } 
+    } else {
+        alert("No se encontraron datos del usuario.");
+        window.location.href = "index.html";
+    }
+});
+
+
 // Coordenadas de la ubicación permitida y radio en metros
 const allowedLat = 13.622928;      // Reemplaza con la latitud deseada
 const allowedLng = -87.8959604;      // Reemplaza con la longitud deseada
