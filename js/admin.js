@@ -81,8 +81,8 @@ async function cargarEmpleados() {
             data.identificacion || "",
             data.nacimiento || "",
             data.email,
-            `<button onclick="editarEmpleado('${doc.id}')" style="background-color:green;">Editar</button>
-       <button onclick="eliminarEmpleado('${doc.id}')" style="background-color:red;">Eliminar</button>`
+            `<button onclick="editarEmpleado('${doc.id},${doc.email}')" style="background-color:green;">Editar</button>
+       <button onclick="eliminarEmpleado('${doc.id},${doc.email}')" style="background-color:red;">Eliminar</button>`
         ]).draw();
     });
 }
@@ -136,35 +136,23 @@ async function cargarAsistencias() {
 }
 
 // Función para eliminar un empleado
-async function eliminarEmpleado(id) {
+async function eliminarEmpleado(id, email) {
     if (confirm("¿Estás seguro de eliminar este empleado?")) {
         try {
-            // Obtener el documento del usuario en Firestore
-            const usuarioRef = db.collection("usuarios").doc(id);
-            const usuarioDoc = await usuarioRef.get();
+            // 1. Eliminar el usuario de Firestore
+            await db.collection("usuarios").doc(id).delete();
+            alert("Empleado eliminado de la base de datos.");
 
-            if (!usuarioDoc.exists) {
-                alert("El usuario no existe en la base de datos.");
-                return;
+            // 2. Intentar eliminar al usuario si está autenticado (solo si es el usuario actual)
+            const user = firebase.auth().currentUser;
+            if (user && user.email === email) {
+                await user.delete();
+                alert("El usuario también ha sido eliminado de la autenticación.");
+            } else {
+                alert("El usuario ha sido eliminado de la base de datos, pero la cuenta de autenticación solo puede eliminarla un administrador desde Firebase Console.");
             }
 
-            const email = usuarioDoc.data().email; // Obtener el email del usuario
-
-            // Eliminar al usuario de Firestore
-            await usuarioRef.delete();
-
-            // Obtener la lista de usuarios autenticados y buscar por email
-            const userList = await firebase.auth().listUsers(); // Se necesita una función en Firebase Admin SDK
-            const userToDelete = userList.users.find(user => user.email === email);
-
-            if (userToDelete) {
-                // Eliminar al usuario de Firebase Authentication
-                await firebase.auth().deleteUser(userToDelete.uid);
-            }
-
-            alert("Empleado eliminado correctamente");
-
-            // Recargar la tabla de empleados después de la eliminación
+            // 3. Recargar la tabla después de eliminar
             cargarEmpleados();
         } catch (error) {
             alert("Error al eliminar el empleado: " + error.message);
