@@ -136,7 +136,7 @@ async function cargarAsistencias() {
 }
 
 // Función para eliminar un empleado
-async function eliminarEmpleado(id) {
+function eliminarEmpleado(id) {
     if (confirm("¿Estás seguro de eliminar este empleado?")) {
         try {
             // 1. Eliminar el usuario de Firestore
