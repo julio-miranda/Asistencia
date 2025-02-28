@@ -135,29 +135,31 @@ async function cargarAsistencias() {
     });
 }
 
-// Función para eliminar un empleado
-function eliminarEmpleado(id) {
-    if (confirm("¿Estás seguro de eliminar este empleado?")) {
+// Función asíncrona para eliminar un empleado
+async function eliminarEmpleado(id) {
+    // Confirmar eliminación
+    if (!confirm("¿Estás seguro de eliminar este empleado?")) return;
+
+    try {
+        // 1. Eliminar el empleado de Firestore
+        await db.collection("usuarios").doc(id).delete();
+        alert("Empleado eliminado de la base de datos.");
+
+        // 2. Intentar eliminar al usuario de Authentication (solo si es el usuario actual)
         try {
-            // 1. Eliminar el usuario de Firestore
-            db.collection("usuarios").doc(id).delete().then(() => {
-                alert("Empleado eliminado de la base de datos.");
-                // 2. Intentar eliminar al usuario si está autenticado (solo si es el usuario actual)
-                auth.doc(id).delete().then(() => {
-                    alert("El usuario también ha sido eliminado de la autenticación.");
-                    // 3. Recargar la tabla después de eliminar
-                    cargarEmpleados();
-                }).catch((error) => {
-                    console.error("Error al eliminar usuario de Authentication:", error.message);
-                });
-            }).catch((error) => {
-                console.error("Error al eliminar empleado de Firestore:", error.message);
-            });
-        } catch (error) {
-            alert("Error al eliminar el empleado: " + error.message);
+            await auth.doc(id).delete();
+            alert("El usuario también ha sido eliminado de la autenticación.");
+            // 3. Recargar la tabla después de eliminar
+            cargarEmpleados();
+        } catch (authError) {
+            console.error("Error al eliminar usuario de Authentication:", authError.message);
         }
+    } catch (error) {
+        console.error("Error al eliminar empleado:", error.message);
+        alert("Error al eliminar el empleado: " + error.message);
     }
 }
+
 
 // Función para eliminar una asistencia
 async function eliminarAsistencia(id) {
