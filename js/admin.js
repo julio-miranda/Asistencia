@@ -81,7 +81,7 @@ async function cargarEmpleados() {
             data.identificacion || "",
             data.nacimiento || "",
             data.email,
-            `<button onclick="editarEmpleado('${doc.id}','${data.email}')" style="background-color:green;">Editar</button>
+            `<button onclick="editarEmpleado('${doc.id}')" style="background-color:green;">Editar</button>
        <button onclick="eliminarEmpleado('${doc.id}','${data.email}')" style="background-color:red;">Eliminar</button>`
         ]).draw();
     });
