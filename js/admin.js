@@ -1,6 +1,31 @@
 // Suponiendo que Firebase ya está inicializado y 'db' es la referencia a Firestore.
 // También se asume que la autenticación y demás funciones (logout, etc.) están definidas.
 
+// Verifica si el usuario está autenticado y tiene el rol "admin"
+firebase.auth().onAuthStateChanged(async function(user) {
+    if (!user) {
+        // Si no está autenticado, redirige a la página de login
+        window.location.href = "index.html";
+        return;
+    }
+
+    // Consulta el rol del usuario en Firestore
+    const doc = await db.collection("usuarios").doc(user.uid).get();
+    if (doc.exists) {
+        const role = doc.data().role;
+        if (role !== "admin") {
+            // Si el rol no es "admin", redirige a otra página
+            window.location.href = "index.html";
+        } else if(role == "empleado"){
+            // Si el rol es "empleado", redirige a otra página
+            window.location.href = "employee.html";
+        } 
+    } else {
+        alert("No se encontraron datos del usuario.");
+        window.location.href = "index.html";
+    }
+});
+
 // Al cargar la página, se cargan ambas tablas
 // Se asume que Firebase ya se inicializó en firebase-config.js y que 'db' y 'auth' están disponibles.
 
