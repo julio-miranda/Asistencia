@@ -1,23 +1,25 @@
-// js/employee.js
+// Coordenadas de la ubicación permitida y radio en metros
+const allowedLat = 13.622928;      // Reemplaza con la latitud deseada
+const allowedLng = -87.8959604;      // Reemplaza con la longitud deseada
+const allowedRadius = 10;         // Radio permitido en metros
 
-// Coordenadas de la ubicación permitida y radio en metros (mantiene tu lógica)
-const allowedLat = 13.622928;      
-const allowedLng = -87.8959604;     
-const allowedRadius = 10;         
-
+// Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
 function calcularDistancia(lat1, lon1, lat2, lon2) {
-    const R = 6371e3;
+    const R = 6371e3; // Radio de la Tierra en metros
     const φ1 = lat1 * Math.PI / 180;
     const φ2 = lat2 * Math.PI / 180;
     const Δφ = (lat2 - lat1) * Math.PI / 180;
     const Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ / 2) ** 2 +
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
         Math.cos(φ1) * Math.cos(φ2) *
-        Math.sin(Δλ / 2) ** 2;
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+
+    return R * c; // Distancia en metros
 }
 
+// Función que verifica la ubicación actual del usuario
 function checkLocation(successCallback, errorCallback) {
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -25,6 +27,7 @@ function checkLocation(successCallback, errorCallback) {
                 const currentLat = position.coords.latitude;
                 const currentLng = position.coords.longitude;
                 const distance = calcularDistancia(allowedLat, allowedLng, currentLat, currentLng);
+                // Verifica si la distancia está dentro del radio permitido
                 if (distance <= allowedRadius) {
                     successCallback();
                 } else {
@@ -42,7 +45,7 @@ function checkLocation(successCallback, errorCallback) {
     }
 }
 
-// Verificar que el usuario esté autenticado y tenga rol "empleado"
+// Verifica que el usuario esté autenticado y tenga rol "empleado"
 checkUserAuth(async function (user) {
     const role = await getUserRole(user);
     if (role !== "empleado") {
@@ -50,81 +53,117 @@ checkUserAuth(async function (user) {
         return;
     }
 });
+// Bandera para evitar múltiples procesamientos
+let scanProcesado = false;
 
-// Cargar modelos y arrancar la cámara en el módulo de asistencia
-const video = document.getElementById("video");
-Promise.all([
-  faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-  faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-  faceapi.nets.faceRecognitionNet.loadFromUri('/models')
-]).then(startVideo);
+function onScanSuccess(decodedText, decodedResult) {
+    // Si ya se procesó un escaneo, se ignoran los siguientes
+    if (scanProcesado) return;
 
-function startVideo() {
-  navigator.mediaDevices.getUserMedia({ video: {} })
-    .then(stream => video.srcObject = stream)
-    .catch(err => console.error("Error al acceder a la cámara:", err));
+    // Verifica que el texto escaneado sea el correcto
+    if (decodedText !== "J.M Asociados") {
+        alert("QR incorrecto. Intenta nuevamente.");
+        return;
+    }
+
+    // Marca que el escaneo ya se procesó
+    scanProcesado = true;
+
+    // Verifica la ubicación antes de proceder
+    checkLocation(
+        function () {
+            // Si la ubicación es correcta, detiene el escáner y registra la asistencia
+            html5QrcodeScanner.clear().then(() => {
+                registrarAsistencia();
+            }).catch((error) => {
+                console.error("Error al detener el escáner", error);
+                // En caso de error, reiniciamos la bandera para permitir reintentos
+                scanProcesado = false;
+            });
+        },
+        function (distance) {
+            // Si la ubicación no es válida, muestra un mensaje y no procede con el registro
+            if (distance !== undefined) {
+                alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
+            } else {
+                alert("No se pudo verificar la ubicación. Intenta nuevamente.");
+            }
+            // Reiniciamos la bandera para permitir reintentos
+            scanProcesado = false;
+        }
+    );
 }
 
-// Función para verificar el rostro y registrar asistencia
-async function verifyFaceAndMarkAttendance() {
-    const user = auth.currentUser;
-    if (!user) return;
 
-    // Obtener el descriptor facial almacenado en el registro del usuario
-    const userDoc = await db.collection("usuarios").doc(user.uid).get();
-    if (!userDoc.exists || !userDoc.data().faceDescriptor) {
-         alert("No se encontró registro facial. Por favor, regístrate correctamente.");
-         return;
-    }
-    const storedDescriptor = new Float32Array(userDoc.data().faceDescriptor);
-
-    // Detectar rostro en tiempo real desde el video
-    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks()
-      .withFaceDescriptor();
-    if (detection) {
-         const currentDescriptor = detection.descriptor;
-         const distance = faceapi.euclideanDistance(storedDescriptor, currentDescriptor);
-         // Umbral para considerar un match (puedes ajustarlo según pruebas)
-         if (distance < 0.6) {
-              // Si el rostro coincide, se verifica la ubicación
-              checkLocation(
-                () => {
-                    registrarAsistencia();
-                },
-                (distLocation) => {
-                    if (distLocation !== undefined) {
-                        alert(`No estás en la ubicación permitida. Distancia detectada: ${distLocation.toFixed(2)} metros.`);
-                    } else {
-                        alert("No se pudo verificar la ubicación. Intenta nuevamente.");
-                    }
-                }
-              );
-         } else {
-              alert("Rostro no coincide. Intenta de nuevo.");
-         }
-    } else {
-         alert("No se pudo detectar tu rostro. Asegúrate de estar frente a la cámara.");
+// Función que maneja los errores de escaneo
+function onScanError(errorMessage) {
+    // No hacer nada si el error no está relacionado con un intento de cargar una imagen
+    if (errorMessage.includes("File input")) {
+        alert("Por favor, usa la cámara para escanear el código QR.");
+        // Reinicia el escáner para que el usuario solo pueda usar la cámara
+        html5QrcodeScanner.clear().then(() => {
+            html5QrcodeScanner.render(onScanSuccess, onScanError);
+        }).catch((error) => {
+            console.error("Error al reiniciar el escáner", error);
+        });
     }
 }
 
-// Función que registra la asistencia en Firestore (mantiene tu lógica previa)
+// Configura el escáner en el contenedor "reader" usando la cámara, sin permitir cargar imágenes
+var html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    {
+        fps: 10,
+        qrbox: 250,
+        videoConstraints: {
+            facingMode: "environment"  // Usamos la cámara trasera del dispositivo
+        },
+        // Deshabilitamos la opción de importar archivos de imagen
+        useFileInput: false
+    },
+    /* verbose= */ false
+);
+
+// Inicia el escáner solo con la cámara
+html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+// Deshabilitar completamente la carga de archivos (imagen) a través de un evento
+document.addEventListener('DOMContentLoaded', function () {
+    // Prevenir la carga de archivos (imagen) si se intenta
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+        fileInput.setAttribute('disabled', true);  // Deshabilitamos el campo de archivo
+        // Opcionalmente, podrías agregar un evento que muestre una alerta si se intenta cargar un archivo
+        fileInput.addEventListener('click', function () {
+            alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
+            window.location.href = "employee.html";
+        });
+    }
+});
+
+// Función para registrar la asistencia en Firebase Firestore, permitiendo múltiples entradas y salidas por día
 async function registrarAsistencia() {
     const user = auth.currentUser;
     if (!user) return;
 
     const now = new Date();
     const hour = now.getHours();
+    // Se formatea la fecha en formato YYYY-MM-DD para agrupar los registros diarios
     const fechaHoy = now.toISOString().split("T")[0];
 
     try {
+        // Se consulta todos los registros de asistencia del usuario para el día de hoy
         const asistenciaQuery = await db.collection("asistencias")
             .where("userId", "==", user.uid)
             .where("fecha", "==", fechaHoy)
             .get();
 
+        // Número de escaneos ya realizados en el día
         const scanCount = asistenciaQuery.size;
+        // Si el número de escaneos es par, se registra una entrada; si es impar, se registra una salida
         const tipo = (scanCount % 2 === 0) ? "entrada" : "salida";
+
+        // Determinar el estado según la hora y el tipo de registro
         let status = "";
         if (tipo === "entrada") {
             if (hour < 8) {
@@ -134,11 +173,12 @@ async function registrarAsistencia() {
             } else {
                 status = "Hora de entrada fuera de horario";
             }
-        } else {
+        } else { // salida
             status = (hour < 16) ? "Salida temprana" : "Salida";
         }
 
-        let nombreEmpleado = user.email;
+        // Obtener el nombre del empleado desde la colección "usuarios"
+        let nombreEmpleado = user.email; // Por defecto se usa el email
         const empleadoQuery = await db.collection("usuarios")
             .where("email", "==", user.email)
             .limit(1)
@@ -147,32 +187,29 @@ async function registrarAsistencia() {
             nombreEmpleado = empleadoQuery.docs[0].data().nombre;
         }
 
+        // Agregar un nuevo documento en "asistencias" con los datos del escaneo
         await db.collection("asistencias").add({
             userId: user.uid,
             user: nombreEmpleado,
             fecha: fechaHoy,
             scanNumber: scanCount + 1,
             time: now.toLocaleTimeString(),
-            tipo: tipo,
+            tipo: tipo,    // "entrada" o "salida"
             status: status
         });
 
+        // Mostrar mensaje en el elemento "qr-result"
         let message = "";
         if (tipo === "entrada") {
             message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
         } else {
             message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
         }
-        document.getElementById("result").innerHTML = `<p>${message}</p>`;
+        document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
     }
 }
-
-// Evento para verificar rostro y registrar asistencia
-document.getElementById("verify-face").addEventListener("click", async () => {
-    await verifyFaceAndMarkAttendance();
-});
 
 // Evento para cerrar sesión
 document.addEventListener("DOMContentLoaded", function () {
