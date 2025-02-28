@@ -5,7 +5,6 @@ firebase.auth().onAuthStateChanged(async function(user) {
         window.location.href = "index.html";
         return;
     }
-
     // Consulta el rol del usuario en Firestore
     const doc = await db.collection("usuarios").doc(user.uid).get();
     if (doc.exists) {
