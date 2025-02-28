@@ -2,7 +2,7 @@
 // También se asume que la autenticación y demás funciones (logout, etc.) están definidas.
 
 // Verifica si el usuario está autenticado y tiene el rol "admin"
-firebase.auth().onAuthStateChanged(async function(user) {
+firebase.auth().onAuthStateChanged(async function (user) {
     if (!user) {
         // Si no está autenticado, redirige a la página de login
         window.location.href = "index.html";
@@ -16,10 +16,10 @@ firebase.auth().onAuthStateChanged(async function(user) {
         if (role !== "admin") {
             // Si el rol no es "admin", redirige a otra página
             window.location.href = "index.html";
-        } else if(role == "empleado"){
+        } else if (role == "empleado") {
             // Si el rol es "empleado", redirige a otra página
             window.location.href = "employee.html";
-        } 
+        }
     } else {
         alert("No se encontraron datos del usuario.");
         window.location.href = "index.html";
@@ -148,13 +148,12 @@ async function eliminarEmpleado(id, email) {
             if (user && user.email == email) {
                 await user.delete();
                 alert("El usuario también ha sido eliminado de la autenticación.");
+                // 3. Recargar la tabla después de eliminar
+                cargarEmpleados();
             } else {
                 console.log(user.email);
                 //alert("El usuario ha sido eliminado de la base de datos, pero la cuenta de autenticación solo puede eliminarla un administrador desde Firebase Console.");
             }
-
-            // 3. Recargar la tabla después de eliminar
-            cargarEmpleados();
         } catch (error) {
             alert("Error al eliminar el empleado: " + error.message);
         }
