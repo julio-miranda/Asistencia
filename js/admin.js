@@ -82,7 +82,7 @@ async function cargarEmpleados() {
             data.nacimiento || "",
             data.email,
             `<button onclick="editarEmpleado('${doc.id}')" style="background-color:green;">Editar</button>
-       <button onclick="eliminarEmpleado('${doc.id}','${data.email}')" style="background-color:red;">Eliminar</button>`
+       <button onclick="eliminarEmpleado('${doc.id}')" style="background-color:red;">Eliminar</button>`
         ]).draw();
     });
 }
@@ -136,23 +136,23 @@ async function cargarAsistencias() {
 }
 
 // Función para eliminar un empleado
-async function eliminarEmpleado(id, email) {
+async function eliminarEmpleado(id) {
     if (confirm("¿Estás seguro de eliminar este empleado?")) {
         try {
             // 1. Eliminar el usuario de Firestore
-            await db.collection("usuarios").doc(id).delete();
-            alert("Empleado eliminado de la base de datos.");
-
-            // 2. Intentar eliminar al usuario si está autenticado (solo si es el usuario actual)
-            const user = firebase.auth().currentUser;
-            if (user.email === email) {
-                await user.delete();
-                alert("El usuario también ha sido eliminado de la autenticación.");
-                // 3. Recargar la tabla después de eliminar
-                cargarEmpleados();
-            } else {
-                alert("El usuario ha sido eliminado de la base de datos, pero la cuenta de autenticación solo puede eliminarla un administrador desde Firebase Console.");
-            }
+            db.collection("usuarios").doc(id).delete().then(() => {
+                alert("Empleado eliminado de la base de datos.");
+                // 2. Intentar eliminar al usuario si está autenticado (solo si es el usuario actual)
+                auth().currentUser.delete().then(() => {
+                    alert("El usuario también ha sido eliminado de la autenticación.");
+                    // 3. Recargar la tabla después de eliminar
+                    cargarEmpleados();
+                }).catch((error) => {
+                    console.error("Error al eliminar usuario de Authentication:", error.message);
+                });
+            }).catch((error) => {
+                console.error("Error al eliminar empleado de Firestore:", error.message);
+            });
         } catch (error) {
             alert("Error al eliminar el empleado: " + error.message);
         }
@@ -298,7 +298,8 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
             nacimiento: nacimiento,
             email: email,
             descripcion: descripcion || "Sin descripción",
-            role: "empleado"
+            role: "empleado",
+            UID: user.uid
         });
         alert("Empleado agregado correctamente");
         window.location.href = "admin.html";

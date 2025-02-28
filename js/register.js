@@ -34,7 +34,8 @@ document.getElementById("register-form").addEventListener("submit", async functi
             email: email,
             descripcion: "Sin descripcion",
             salarioH: 1.25,
-            role: role
+            role: role,
+            UID: user.uid
         });
         alert("Registro exitoso, ahora inicia sesión.");
         window.location.href = "index.html";
