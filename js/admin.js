@@ -139,23 +139,38 @@ async function cargarAsistencias() {
 async function eliminarEmpleado(id) {
     if (confirm("¿Estás seguro de eliminar este empleado?")) {
         try {
-            // Eliminar el usuario de Firestore
-            await db.collection("usuarios").doc(id).delete();
+            // Obtener el documento del usuario en Firestore
+            const usuarioRef = db.collection("usuarios").doc(id);
+            const usuarioDoc = await usuarioRef.get();
 
-            // Eliminar el usuario de Firebase Authentication
-            const usuarioAuth = await firebase.auth().getUserByEmail(id); // Obtenemos el usuario por su email
-            await usuarioAuth.delete(); // Eliminamos al usuario de la autenticación
+            if (!usuarioDoc.exists) {
+                alert("El usuario no existe en la base de datos.");
+                return;
+            }
 
-            // Recargar la tabla de empleados
-            cargarEmpleados();
+            const email = usuarioDoc.data().email; // Obtener el email del usuario
+
+            // Eliminar al usuario de Firestore
+            await usuarioRef.delete();
+
+            // Obtener la lista de usuarios autenticados y buscar por email
+            const userList = await firebase.auth().listUsers(); // Se necesita una función en Firebase Admin SDK
+            const userToDelete = userList.users.find(user => user.email === email);
+
+            if (userToDelete) {
+                // Eliminar al usuario de Firebase Authentication
+                await firebase.auth().deleteUser(userToDelete.uid);
+            }
 
             alert("Empleado eliminado correctamente");
+
+            // Recargar la tabla de empleados después de la eliminación
+            cargarEmpleados();
         } catch (error) {
             alert("Error al eliminar el empleado: " + error.message);
         }
     }
 }
-
 
 // Función para eliminar una asistencia
 async function eliminarAsistencia(id) {
