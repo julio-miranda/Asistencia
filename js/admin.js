@@ -143,7 +143,7 @@ async function eliminarEmpleado(id) {
             db.collection("usuarios").doc(id).delete().then(() => {
                 alert("Empleado eliminado de la base de datos.");
                 // 2. Intentar eliminar al usuario si está autenticado (solo si es el usuario actual)
-                auth().currentUser.delete().then(() => {
+                auth.currentUser.delete().then(() => {
                     alert("El usuario también ha sido eliminado de la autenticación.");
                     // 3. Recargar la tabla después de eliminar
                     cargarEmpleados();
