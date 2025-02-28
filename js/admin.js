@@ -153,6 +153,7 @@ function eliminarEmpleado(id) {
             // 3. Recargar la tabla después de eliminar
             //cargarEmpleados();
         } catch (authError) {
+            console.log(auth.get());
             console.error("Error al eliminar usuario de Authentication:", authError.message);
         }
     } catch (error) {
