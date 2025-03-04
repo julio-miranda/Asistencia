@@ -82,7 +82,6 @@ function mostrarTabla(tabla) {
   }
 }
 
-// Cargar la tabla de empleados
 async function cargarEmpleados() {
   // Inicializar o destruir DataTable si ya existe
   const empleadosTable = $("#empleadosTable").DataTable({
@@ -113,14 +112,15 @@ async function cargarEmpleados() {
   const empleadosSnapshot = await db.collection("usuarios").get();
   empleadosSnapshot.forEach(doc => {
     const data = doc.data();
+
     empleadosTable.row.add([
-      data.nombre,
+      data.nombre || "",  // Asegurar que cada campo tenga valor
       data.identificacion || "",
       data.nacimiento || "",
-      data.email,
-      data.descripcion,
+      data.email || "",
+      data.descripcion || "Sin descripcion",
       `<button onclick="editarEmpleado('${doc.id}')" style="background-color:green;">Editar</button>
-         <button onclick="eliminarEmpleado('${doc.id}')" style="background-color:red;">Eliminar</button>`
+       <button onclick="eliminarEmpleado('${doc.id}')" style="background-color:red;">Eliminar</button>`
     ]);
   });
 
