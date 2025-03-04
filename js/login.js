@@ -27,7 +27,7 @@ document.getElementById("login-form").addEventListener("submit", async function 
         const userData = userDoc.data();
 
         // Comparación de la contraseña encriptada utilizando la función personalizada
-        if (encrypt_data(pass) !== userData.password) {
+        if (pass !== decrypt_data(userData.password)) {
             alert("Contraseña incorrecta.");
             return;
         }
