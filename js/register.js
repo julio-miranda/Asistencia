@@ -18,6 +18,14 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
         const adminQuery = await db.collection("usuarios").where("role", "==", "admin").get();
         const role = adminQuery.empty ? "admin" : "empleado"; // Primer usuario será admin, los demás empleados
 
+        // Obtener la IP solo si el usuario es un empleado
+        let ip = null;
+        if (role === "empleado") {
+            const response = await fetch("https://api.ipify.org?format=json");
+            const data = await response.json();
+            ip = data.ip;  // IP pública del dispositivo
+        }
+
         // Encriptar la contraseña
         const hashedPassword = encrypt_data(pass);
 
@@ -30,7 +38,8 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
             password: hashedPassword, 
             descripcion: "Sin descripción",
             salarioH: 1.25,
-            role: role
+            role: role,
+            ip: ip // Solo se agrega la IP si el usuario es empleado
         });
 
         alert("Registro exitoso. Ahora inicia sesión.");
