@@ -1,4 +1,4 @@
-document.getElementById("login-form").addEventListener("submit", async function (e) {
+document.getElementById("login-form").addEventListener("submit", async function (e) { 
     e.preventDefault();
 
     // Obtener y validar los datos del formulario
@@ -32,15 +32,11 @@ document.getElementById("login-form").addEventListener("submit", async function 
             return;
         }
 
-        // Verificación de IP solo para empleados
+        // Verificación del sistema operativo solo si es un empleado
         if (userData.role === "empleado") {
-            const ipResponse = await fetch('https://api.ipify.org?format=json');
-            const ipData = await ipResponse.json();
-            const ip = ipData.ip;
-
-            // Verificar si la IP coincide
-            if (userData.ip !== ip) {
-                alert("La dirección IP no coincide. Acceso denegado.");
+            const sistemaOperativo = navigator.platform;
+            if (userData.sistemaOperativo !== sistemaOperativo) {
+                alert("El sistema operativo no coincide con el registrado. Acceso denegado.");
                 return;
             }
         }
