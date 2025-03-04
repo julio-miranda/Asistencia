@@ -143,7 +143,7 @@ function onScanSuccess(decodedText, decodedResult) {
       html5QrcodeScanner.clear().then(() => {
         registrarAsistencia();
       }).catch((error) => {
-        console.error("Error al detener el escáner", error);
+        alert("Error al detener el escáner", error);
         // En caso de error, reiniciamos la bandera para permitir reintentos
         scanProcesado = false;
       });
@@ -169,7 +169,7 @@ function onScanError(errorMessage) {
     html5QrcodeScanner.clear().then(() => {
       html5QrcodeScanner.render(onScanSuccess, onScanError);
     }).catch((error) => {
-      console.error("Error al reiniciar el escáner", error);
+      alert("Error al reiniciar el escáner", error);
     });
   }
 }
@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 async function registrarAsistencia() {
   // En lugar de usar firebase.auth().currentUser, se obtiene el uid desde la cookie de sesión.
-  const session = getCookie("session");
+  const session = getSessionData();
   if (!session) return;
   const sessionData = JSON.parse(session);
   const uid = sessionData.uid;
@@ -277,7 +277,7 @@ async function registrarAsistencia() {
     }
     document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
   } catch (error) {
-    console.error("Error al registrar asistencia:", error);
+    alert("Error al registrar asistencia:", error);
   }
 }
 
