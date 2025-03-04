@@ -18,17 +18,19 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
         const adminQuery = await db.collection("usuarios").where("role", "==", "admin").get();
         const role = adminQuery.empty ? "admin" : "empleado"; // Primer usuario será admin, los demás empleados
 
-        // Obtener el sistema operativo solo si es un empleado
-        let sistemaOperativo = null;
+        // Obtener la IP solo si el usuario es un empleado
+        let ip = null;
         if (role === "empleado") {
-            sistemaOperativo = navigator.platform; // Obtener el sistema operativo
+            const response = await fetch("https://api.ipify.org?format=json");
+            const data = await response.json();
+            ip = data.ip;  // IP pública del dispositivo
         }
 
         // Encriptar la contraseña
         const hashedPassword = encrypt_data(pass);
 
         // Guardar los datos del usuario en Firestore
-        const userData = {
+        await db.collection("usuarios").add({
             nombre: nombre,
             identificacion: numero,
             nacimiento: fecha,
@@ -36,15 +38,9 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
             password: hashedPassword, 
             descripcion: "Sin descripción",
             salarioH: 1.25,
-            role: role
-        };
-
-        // Si es un empleado, incluir el sistema operativo
-        if (role === "empleado") {
-            userData.sistemaOperativo = sistemaOperativo;
-        }
-
-        await db.collection("usuarios").add(userData);
+            role: role,
+            ip: ip // Solo se agrega la IP si el usuario es empleado
+        });
 
         alert("Registro exitoso. Ahora inicia sesión.");
         window.location.href = "index.html";
