@@ -182,15 +182,14 @@ function onScanError(errorMessage) {
 var html5QrcodeScanner = new Html5QrcodeScanner(
   "reader",
   {
-    fps: 10,
-    qrbox: 250,
+    fps: 5, // Reduce los FPS para dar más tiempo al escáner
+    qrbox: 300, // Aumenta el tamaño del área de escaneo
     videoConstraints: {
       facingMode: "environment" // Usamos la cámara trasera del dispositivo
     },
-    // Deshabilitamos la opción de importar archivos de imagen
     useFileInput: false
   },
-    /* verbose= */ false
+  false
 );
 
 // Inicia el escáner solo con la cámara
