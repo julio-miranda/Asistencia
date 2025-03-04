@@ -1,13 +1,12 @@
-// js/register.js
-document.getElementById("register-form").addEventListener("submit", async function (e) {
+document.getElementById("register-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const Nombre = document.getElementById("register-nombre").value;
-    const numero = document.getElementById("register-numero").value;
-    const Fecha = document.getElementById("register-Fecha").value;
-    const email = document.getElementById("register-email").value;
-    const pass = document.getElementById("register-password").value;
-    const pass2 = document.getElementById("register-password2").value;
-    const role = document.getElementById("register-role").value;
+    const nombre   = document.getElementById("register-nombre").value;
+    const numero   = document.getElementById("register-numero").value;
+    const fecha    = document.getElementById("register-Fecha").value;
+    const email    = document.getElementById("register-email").value;
+    const pass     = document.getElementById("register-password").value;
+    const pass2    = document.getElementById("register-password2").value;
+    const role     = document.getElementById("register-role").value;
 
     if (pass !== pass2) {
         alert("Las contraseñas no coinciden");
@@ -15,7 +14,7 @@ document.getElementById("register-form").addEventListener("submit", async functi
     }
 
     try {
-        // Si el usuario selecciona admin, se verifica que no exista uno previamente.
+        // Verificar que solo exista un admin si se intenta registrar uno nuevo.
         if (role === "admin") {
             const adminQuery = await db.collection("usuarios").where("role", "==", "admin").get();
             if (!adminQuery.empty) {
@@ -24,27 +23,29 @@ document.getElementById("register-form").addEventListener("submit", async functi
             }
         }
 
-        const userCredential = await auth.createUserWithEmailAndPassword(email, pass);
-        const user = userCredential.user;
-        // Guarda los datos del usuario en Firestore.
-        await db.collection("usuarios").doc(user.uid).set({
-            nombre: Nombre,
+        // Encriptar la contraseña utilizando la misma función que en el login.
+        const hashedPassword = encrypt_data(pass);
+
+        // Guardar los datos del usuario en Firestore
+        await db.collection("usuarios").add({
+            nombre: nombre,
             identificacion: numero,
-            nacimiento: Fecha,
+            nacimiento: fecha,
             email: email,
+            password: hashedPassword, // Contraseña encriptada
             descripcion: "Sin descripcion",
             salarioH: 1.25,
-            role: role,
-            UID: user.uid
+            role: role
         });
+
         alert("Registro exitoso, ahora inicia sesión.");
         window.location.href = "index.html";
     } catch (error) {
-        alert(error.message);
+        alert("Error: " + error.message);
     }
 });
 
-document.getElementById("go-to-login").addEventListener("click", e => {
+document.getElementById("go-to-login").addEventListener("click", (e) => {
     e.preventDefault();
     window.location.href = "index.html";
 });
