@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // ====================
 
 async function registrarAsistencia() {
-  // En lugar de usar firebase.auth().currentUser, se obtiene el uid desde la cookie de sesión.
+  alert("Registrando asistencia..."); // Verifica si se llega aquí
   const session = getSessionData();
   if (!session) return;
   const sessionData = JSON.parse(session);
@@ -220,22 +220,17 @@ async function registrarAsistencia() {
 
   const now = new Date();
   const hour = now.getHours();
-  // Se formatea la fecha en formato YYYY-MM-DD para agrupar los registros diarios
   const fechaHoy = now.toISOString().split("T")[0];
 
   try {
-    // Se consultan todos los registros de asistencia del usuario para el día de hoy
     const asistenciaQuery = await db.collection("asistencias")
       .where("userId", "==", uid)
       .where("fecha", "==", fechaHoy)
       .get();
 
-    // Número de escaneos ya realizados en el día
     const scanCount = asistenciaQuery.size;
-    // Si el número de escaneos es par, se registra una entrada; si es impar, se registra una salida
     const tipo = (scanCount % 2 === 0) ? "entrada" : "salida";
 
-    // Determinar el estado según la hora y el tipo de registro
     let status = "";
     if (tipo === "entrada") {
       if (hour < 8) {
@@ -249,8 +244,7 @@ async function registrarAsistencia() {
       status = (hour < 16) ? "Salida temprana" : "Salida";
     }
 
-    // Obtener el nombre del empleado desde Firestore.
-    let nombreEmpleado = sessionData.email; // Por defecto se usa el email
+    let nombreEmpleado = sessionData.email;
     const empleadoQuery = await db.collection("usuarios")
       .where("email", "==", sessionData.email)
       .limit(1)
@@ -259,25 +253,18 @@ async function registrarAsistencia() {
       nombreEmpleado = empleadoQuery.docs[0].data().nombre;
     }
 
-    // Agregar un nuevo documento en "asistencias" con los datos del escaneo
     await db.collection("asistencias").add({
       userId: uid,
       user: nombreEmpleado,
       fecha: fechaHoy,
       scanNumber: scanCount + 1,
       time: now.toLocaleTimeString(),
-      tipo: tipo,    // "entrada" o "salida"
+      tipo: tipo,
       status: status
     });
 
-    // Mostrar mensaje en el elemento "qr-result"
-    let message = "";
-    if (tipo === "entrada") {
-      message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-    } else {
-      message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-    }
-    alert(message);
+    alert("Asistencia registrada correctamente.");
+
   } catch (error) {
     alert("Error al registrar asistencia: " + error);
   }
