@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     // Obtener los datos de la sesión almacenados en localStorage
     const sessionData = getSessionData();
-    alert("Sesión: " + JSON.stringify(sessionData));
+    //alert("Sesión: " + JSON.stringify(sessionData));
 
     // Verifica si no hay sesión o si los datos son inválidos
     if (!sessionData) {
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    alert("Usuario autorizado, cargando datos...");
+    //alert("Usuario autorizado, cargando datos...");
     // Aquí puedes cargar los datos y funciones específicas para el empleado
 
   } catch (error) {
@@ -124,7 +124,7 @@ function checkLocation(successCallback, errorCallback) {
 let scanProcesado = false;
 
 function onScanSuccess(decodedText, decodedResult) {
-  alert("QR Escaneado: " + decodedText); // Agrega un alert para ver el contenido del QR
+  //alert("QR Escaneado: " + decodedText); // Agrega un alert para ver el contenido del QR
 
   // Si ya se procesó un escaneo, se ignoran los siguientes
   if (scanProcesado) return;
@@ -139,10 +139,10 @@ function onScanSuccess(decodedText, decodedResult) {
   scanProcesado = true;
 
   // Verifica la ubicación antes de proceder
-  alert("Verificando ubicación..."); // Alert cuando se empieza la verificación de ubicación
+  //alert("Verificando ubicación..."); // Alert cuando se empieza la verificación de ubicación
   checkLocation(
     function () {
-      alert("Ubicación verificada correctamente.");
+      //alert("Ubicación verificada correctamente.");
       // Si la ubicación es correcta, detiene el escáner y registra la asistencia
       html5QrcodeScanner.clear().then(() => {
         registrarAsistencia();
