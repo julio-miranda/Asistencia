@@ -124,6 +124,8 @@ function checkLocation(successCallback, errorCallback) {
 let scanProcesado = false;
 
 function onScanSuccess(decodedText, decodedResult) {
+  alert("QR Escaneado: " + decodedText); // Agrega un alert para ver el contenido del QR
+
   // Si ya se procesó un escaneo, se ignoran los siguientes
   if (scanProcesado) return;
 
@@ -137,8 +139,10 @@ function onScanSuccess(decodedText, decodedResult) {
   scanProcesado = true;
 
   // Verifica la ubicación antes de proceder
+  alert("Verificando ubicación..."); // Alert cuando se empieza la verificación de ubicación
   checkLocation(
     function () {
+      alert("Ubicación verificada correctamente.");
       // Si la ubicación es correcta, detiene el escáner y registra la asistencia
       html5QrcodeScanner.clear().then(() => {
         registrarAsistencia();
@@ -149,9 +153,8 @@ function onScanSuccess(decodedText, decodedResult) {
       });
     },
     function (distance) {
-      // Si la ubicación no es válida, muestra un mensaje y no procede con el registro
       if (distance !== undefined) {
-        alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
+        alert(`No estás en la ubicación permitida. Distancia detectada: ${distance.toFixed(2)} metros.`);
       } else {
         alert("No se pudo verificar la ubicación. Intenta nuevamente.");
       }
@@ -162,6 +165,7 @@ function onScanSuccess(decodedText, decodedResult) {
 }
 
 function onScanError(errorMessage) {
+  alert("Error al escanear: " + errorMessage); // Agrega un alert para mostrar el error
   // No hacer nada si el error no está relacionado con un intento de cargar una imagen
   if (errorMessage.includes("File input")) {
     alert("Por favor, usa la cámara para escanear el código QR.");
