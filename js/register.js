@@ -1,3 +1,4 @@
+// js/register.js
 document.getElementById("register-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const nombre   = document.getElementById("register-nombre").value;
@@ -6,7 +7,6 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
     const email    = document.getElementById("register-email").value;
     const pass     = document.getElementById("register-password").value;
     const pass2    = document.getElementById("register-password2").value;
-    const role     = document.getElementById("register-role").value;
 
     if (pass !== pass2) {
         alert("Las contraseñas no coinciden");
@@ -14,16 +14,11 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
     }
 
     try {
-        // Verificar que solo exista un admin si se intenta registrar uno nuevo.
-        if (role === "admin") {
-            const adminQuery = await db.collection("usuarios").where("role", "==", "admin").get();
-            if (!adminQuery.empty) {
-                alert("Ya existe un administrador registrado.");
-                return;
-            }
-        }
+        // Verificar si ya existe un administrador registrado
+        const adminQuery = await db.collection("usuarios").where("role", "==", "admin").get();
+        const role = adminQuery.empty ? "admin" : "empleado"; // Primer usuario será admin, los demás empleados
 
-        // Encriptar la contraseña utilizando la misma función que en el login.
+        // Encriptar la contraseña
         const hashedPassword = encrypt_data(pass);
 
         // Guardar los datos del usuario en Firestore
@@ -32,13 +27,13 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
             identificacion: numero,
             nacimiento: fecha,
             email: email,
-            password: hashedPassword, // Contraseña encriptada
-            descripcion: "Sin descripcion",
+            password: hashedPassword, 
+            descripcion: "Sin descripción",
             salarioH: 1.25,
             role: role
         });
 
-        alert("Registro exitoso, ahora inicia sesión.");
+        alert("Registro exitoso. Ahora inicia sesión.");
         window.location.href = "index.html";
     } catch (error) {
         alert("Error: " + error.message);
