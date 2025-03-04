@@ -7,11 +7,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     // Obtener los datos de la sesión almacenados en localStorage
     const sessionData = getSessionData();
-    console.log("Sesión:", sessionData);
+    alert("Sesión: " + JSON.stringify(sessionData));
 
     // Verifica si no hay sesión o si los datos son inválidos
     if (!sessionData) {
-      console.log("No hay sesión, redirigiendo...");
+      alert("No hay sesión, redirigiendo...");
       window.location.href = "index.html";
       return;
     }
@@ -24,27 +24,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Consulta a Firestore para obtener los datos del usuario
     const userDocSnapshot = await db.collection("usuarios").doc(uid).get();
     if (!userDocSnapshot.exists) {
-      console.log("Usuario no encontrado en Firestore.");
+      alert("Usuario no encontrado en Firestore.");
       window.location.href = "index.html";
       return;
     }
 
     const userData = userDocSnapshot.data();
     const role = userData.role;
-    console.log("Rol del usuario:", role);
+    alert("Rol del usuario: " + role);
 
     // Verifica que el usuario tenga el rol "empleado" para acceder a esta página
     if (role !== "empleado") {
-      console.log("Usuario no autorizado, redirigiendo...");
+      alert("Usuario no autorizado, redirigiendo...");
       handleUnauthorizedRole(role);
       return;
     }
 
-    console.log("Usuario autorizado, cargando datos...");
+    alert("Usuario autorizado, cargando datos...");
     // Aquí puedes cargar los datos y funciones específicas para el empleado
 
   } catch (error) {
-    console.error("Error al verificar la sesión o el rol del usuario:", error);
+    alert("Error al verificar la sesión o el rol del usuario: " + error);
     window.location.href = "index.html";
   }
 });
@@ -106,7 +106,7 @@ function checkLocation(successCallback, errorCallback) {
         }
       },
       (error) => {
-        console.error("Error al obtener la ubicación:", error);
+        alert("Error al obtener la ubicación: " + error);
         errorCallback();
       }
     );
@@ -143,7 +143,7 @@ function onScanSuccess(decodedText, decodedResult) {
       html5QrcodeScanner.clear().then(() => {
         registrarAsistencia();
       }).catch((error) => {
-        alert("Error al detener el escáner", error);
+        alert("Error al detener el escáner: " + error);
         // En caso de error, reiniciamos la bandera para permitir reintentos
         scanProcesado = false;
       });
@@ -169,7 +169,7 @@ function onScanError(errorMessage) {
     html5QrcodeScanner.clear().then(() => {
       html5QrcodeScanner.render(onScanSuccess, onScanError);
     }).catch((error) => {
-      alert("Error al reiniciar el escáner", error);
+      alert("Error al reiniciar el escáner: " + error);
     });
   }
 }
@@ -209,17 +209,15 @@ document.addEventListener('DOMContentLoaded', function () {
 // ====================
 
 async function registrarAsistencia() {
+  // En lugar de usar firebase.auth().currentUser, se obtiene el uid desde la cookie de sesión.
   const session = getSessionData();
-  if (!session) {
-    console.log("No se encontró la sesión.");
-    return;
-  }
-
+  if (!session) return;
   const sessionData = JSON.parse(session);
   const uid = sessionData.uid;
 
   const now = new Date();
   const hour = now.getHours();
+  // Se formatea la fecha en formato YYYY-MM-DD para agrupar los registros diarios
   const fechaHoy = now.toISOString().split("T")[0];
 
   try {
@@ -229,11 +227,12 @@ async function registrarAsistencia() {
       .where("fecha", "==", fechaHoy)
       .get();
 
-    console.log("Número de registros de asistencia encontrados:", asistenciaQuery.size);
-
+    // Número de escaneos ya realizados en el día
     const scanCount = asistenciaQuery.size;
+    // Si el número de escaneos es par, se registra una entrada; si es impar, se registra una salida
     const tipo = (scanCount % 2 === 0) ? "entrada" : "salida";
 
+    // Determinar el estado según la hora y el tipo de registro
     let status = "";
     if (tipo === "entrada") {
       if (hour < 8) {
@@ -247,35 +246,37 @@ async function registrarAsistencia() {
       status = (hour < 16) ? "Salida temprana" : "Salida";
     }
 
+    // Obtener el nombre del empleado desde Firestore.
     let nombreEmpleado = sessionData.email; // Por defecto se usa el email
     const empleadoQuery = await db.collection("usuarios")
       .where("email", "==", sessionData.email)
       .limit(1)
       .get();
-
     if (!empleadoQuery.empty) {
       nombreEmpleado = empleadoQuery.docs[0].data().nombre;
     }
 
-    // Agregar un nuevo documento en "asistencias"
+    // Agregar un nuevo documento en "asistencias" con los datos del escaneo
     await db.collection("asistencias").add({
       userId: uid,
       user: nombreEmpleado,
       fecha: fechaHoy,
       scanNumber: scanCount + 1,
       time: now.toLocaleTimeString(),
-      tipo: tipo,
+      tipo: tipo,    // "entrada" o "salida"
       status: status
     });
 
-    let message = tipo === "entrada"
-      ? `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`
-      : `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-
-    document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
+    // Mostrar mensaje en el elemento "qr-result"
+    let message = "";
+    if (tipo === "entrada") {
+      message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
+    } else {
+      message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
+    }
+    alert(message);
   } catch (error) {
-    console.error("Error al registrar asistencia:", error);
-    alert("Error al registrar asistencia, por favor intenta nuevamente.");
+    alert("Error al registrar asistencia: " + error);
   }
 }
 
@@ -295,6 +296,6 @@ document.addEventListener("DOMContentLoaded", function () {
       // window.location.href = "index.html";
     });
   } else {
-    console.error("El botón de cerrar sesión no se encontró en el DOM.");
+    alert("El botón de cerrar sesión no se encontró en el DOM.");
   }
 });
