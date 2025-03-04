@@ -303,6 +303,9 @@ async function editarEmpleado(id) {
     document.getElementById("empleado-salario").value = data.salarioH;
     document.getElementById("empleado-nacimiento").value = data.nacimiento;
     document.getElementById("descripcion").value = data.descripcion;
+    // Establecer el ID del empleado en el campo oculto para saber que es una edición
+    document.getElementById("empleado-id").value = id;
+
     document.getElementById("empleado-container").style.display = 'block';
     document.getElementById("tabla-empleados").style.display = 'none';
     document.getElementById("tabla-asistencias").style.display = 'none';
@@ -314,6 +317,7 @@ async function editarEmpleado(id) {
 // Manejo del formulario para agregar o editar un empleado
 document.getElementById("empleado-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const empleadoId = document.getElementById("empleado-id").value;
   const nombre = document.getElementById("empleado-nombre").value;
   const email = document.getElementById("empleado-email").value;
   const identificacion = document.getElementById("empleado-identificacion").value;
@@ -322,30 +326,47 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   const descripcion = document.getElementById("descripcion").value;
   const pass = document.getElementById("register-password").value;
   const pass2 = document.getElementById("register-password2").value;
+
   if (pass !== pass2) {
     alert("Las contraseñas no coinciden");
     return;
   }
+
   try {
-    // Encriptar la contraseña del nuevo empleado usando encrypt_data
+    // Encriptar la contraseña del empleado usando encrypt_data
     const hashedPassword = encrypt_data(pass);
-    // Crear el nuevo empleado en Firestore
-    const newUserRef = await db.collection("usuarios").add({
-      nombre: nombre,
-      identificacion: identificacion,
-      salarioH: salarioH,
-      nacimiento: nacimiento,
-      email: email,
-      descripcion: descripcion || "Sin descripción",
-      role: "empleado",
-      password: hashedPassword
-    });
-    // Actualizar el documento con su propio ID como UID, si se requiere
-    await db.collection("usuarios").doc(newUserRef.id).update({ UID: newUserRef.id });
-    alert("Empleado agregado correctamente");
+
+    if (empleadoId) {
+      // Modo edición: actualizar el documento existente
+      await db.collection("usuarios").doc(empleadoId).update({
+        nombre: nombre,
+        identificacion: identificacion,
+        salarioH: salarioH,
+        nacimiento: nacimiento,
+        email: email,
+        descripcion: descripcion || "Sin descripción",
+        password: hashedPassword
+      });
+      alert("Empleado actualizado correctamente");
+    } else {
+      // Modo agregar: crear un nuevo documento
+      const newUserRef = await db.collection("usuarios").add({
+        nombre: nombre,
+        identificacion: identificacion,
+        salarioH: salarioH,
+        nacimiento: nacimiento,
+        email: email,
+        descripcion: descripcion || "Sin descripción",
+        role: "empleado",
+        password: hashedPassword
+      });
+      // Actualizar el documento con su propio ID como UID, si se requiere
+      await db.collection("usuarios").doc(newUserRef.id).update({ UID: newUserRef.id });
+      alert("Empleado agregado correctamente");
+    }
     window.location.href = "admin.html";
   } catch (error) {
-    alert("Error al agregar el empleado: " + error.message);
+    alert("Error al guardar el empleado: " + error.message);
   }
 });
 
