@@ -84,6 +84,7 @@ function mostrarTabla(tabla) {
 
 // Cargar la tabla de empleados
 async function cargarEmpleados() {
+  // Inicializar o destruir DataTable si ya existe
   const empleadosTable = $("#empleadosTable").DataTable({
     scrollX: true,
     destroy: true,
@@ -106,6 +107,9 @@ async function cargarEmpleados() {
     }
   });
 
+  // Limpiar la tabla antes de cargar nuevos datos
+  empleadosTable.clear().draw();
+
   const empleadosSnapshot = await db.collection("usuarios").get();
   empleadosSnapshot.forEach(doc => {
     const data = doc.data();
@@ -116,8 +120,11 @@ async function cargarEmpleados() {
       data.email,
       `<button onclick="editarEmpleado('${doc.id}')" style="background-color:green;">Editar</button>
          <button onclick="eliminarEmpleado('${doc.id}')" style="background-color:red;">Eliminar</button>`
-    ]).draw();
+    ]);
   });
+
+  // Dibujar la tabla con los nuevos datos
+  empleadosTable.draw();
 }
 
 // Cargar la tabla de asistencias
@@ -152,8 +159,9 @@ async function cargarAsistencias() {
       { targets: 6, width: "180px", className: "dt-center" }
     ]
   });
-
+  asistenciasTable.clear().draw();
   const asistenciasSnapshot = await db.collection("asistencias").get();
+
   asistenciasSnapshot.forEach(doc => {
     const data = doc.data();
     asistenciasTable.row.add([
