@@ -1,249 +1,302 @@
-// Verifica si el usuario está autenticado y tiene el rol "empleado"
-firebase.auth().onAuthStateChanged(async function(user) {
-    if (!user) {
-        // Si no está autenticado, redirige a la página de login
-        window.location.href = "index.html";
-        return;
+// js/employee.js
+
+// ===================
+// Verificación de Sesión Automática
+// ===================
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    // Obtener los datos de la sesión almacenados en localStorage
+    const sessionData = getSessionData();
+    console.log("Sesión:", sessionData);
+
+    // Verifica si no hay sesión o si los datos son inválidos
+    if (!sessionData) {
+      console.log("No hay sesión, redirigiendo...");
+      window.location.href = "index.html";
+      return;
     }
-    // Consulta el rol del usuario en Firestore
-    const doc = await db.collection("usuarios").doc(user.uid).get();
-    if (doc.exists) {
-        const role = doc.data().role;
-        if (role == "admin") {
-            // Si el rol es "admin", redirige a otra página
-            window.location.href = "admin.html";
-        } else if(role !== "empleado"){
-            // Si el rol no es "empleado", redirige a otra página
-            window.location.href = "index.html";
-        } 
-    } else {
-        alert("No se encontraron datos del usuario.");
-        window.location.href = "index.html";
+
+    // Opcional: Renueva la sesión para extender su expiración
+    refreshSession();
+
+    const uid = sessionData.uid;
+
+    // Consulta a Firestore para obtener los datos del usuario
+    const userDocSnapshot = await db.collection("usuarios").doc(uid).get();
+    if (!userDocSnapshot.exists) {
+      console.log("Usuario no encontrado en Firestore.");
+      window.location.href = "index.html";
+      return;
     }
+
+    const userData = userDocSnapshot.data();
+    const role = userData.role;
+    console.log("Rol del usuario:", role);
+
+    // Verifica que el usuario tenga el rol "empleado" para acceder a esta página
+    if (role !== "empleado") {
+      console.log("Usuario no autorizado, redirigiendo...");
+      handleUnauthorizedRole(role);
+      return;
+    }
+
+    console.log("Usuario autorizado, cargando datos...");
+    // Aquí puedes cargar los datos y funciones específicas para el empleado
+
+  } catch (error) {
+    console.error("Error al verificar la sesión o el rol del usuario:", error);
+    window.location.href = "index.html";
+  }
 });
 
+/**
+* Función para manejar usuarios con roles no autorizados en esta sección.
+* Redirige a la página correspondiente según el rol.
+* @param {string} role - Rol del usuario.
+*/
+function handleUnauthorizedRole(role) {
+  // Si el rol es "admin", redirige a admin.html; de lo contrario, vuelve al login
+  window.location.href = role === "admin" ? "admin.html" : "index.html";
+}
+
+// ====================
+// Código de verificación de ubicación y escaneo QR (sin cambios respecto a la lógica de geolocalización)
+// ====================
 
 // Coordenadas de la ubicación permitida y radio en metros
 const allowedLat = 13.622928;      // Reemplaza con la latitud deseada
-const allowedLng = -87.8959604;      // Reemplaza con la longitud deseada
-const allowedRadius = 10;         // Radio permitido en metros
+const allowedLng = -87.8959604;     // Reemplaza con la longitud deseada
+const allowedRadius = 10;           // Radio permitido en metros
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
 function calcularDistancia(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; // Radio de la Tierra en metros
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const R = 6371e3; // Radio de la Tierra en metros
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) *
-        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-    return R * c; // Distancia en metros
+  return R * c; // Distancia en metros
 }
 
 // Función que verifica la ubicación actual del usuario
 function checkLocation(successCallback, errorCallback) {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            position => {
-                const currentLat = position.coords.latitude;
-                const currentLng = position.coords.longitude;
-                const distance = calcularDistancia(allowedLat, allowedLng, currentLat, currentLng);
-                // Verifica si la distancia está dentro del radio permitido
-                if (distance <= allowedRadius) {
-                    successCallback();
-                } else {
-                    errorCallback(distance);
-                }
-            },
-            error => {
-                console.error("Error al obtener la ubicación:", error);
-                errorCallback();
-            }
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const currentLat = position.coords.latitude;
+        const currentLng = position.coords.longitude;
+        const distance = calcularDistancia(
+          allowedLat,
+          allowedLng,
+          currentLat,
+          currentLng
         );
-    } else {
-        alert("La geolocalización no está soportada por este navegador.");
+        // Verifica si la distancia está dentro del radio permitido
+        if (distance <= allowedRadius) {
+          successCallback();
+        } else {
+          errorCallback(distance);
+        }
+      },
+      (error) => {
+        console.error("Error al obtener la ubicación:", error);
         errorCallback();
-    }
+      }
+    );
+  } else {
+    alert("La geolocalización no está soportada por este navegador.");
+    errorCallback();
+  }
 }
 
-// Verifica que el usuario esté autenticado y tenga rol "empleado"
-checkUserAuth(async function (user) {
-    const role = await getUserRole(user);
-    if (role !== "empleado") {
-        window.location.href = "index.html";
-        return;
-    }
-});
+// ====================
+// Manejo del escaneo QR y registro de asistencia
+// ====================
+
 // Bandera para evitar múltiples procesamientos
 let scanProcesado = false;
 
 function onScanSuccess(decodedText, decodedResult) {
-    // Si ya se procesó un escaneo, se ignoran los siguientes
-    if (scanProcesado) return;
+  // Si ya se procesó un escaneo, se ignoran los siguientes
+  if (scanProcesado) return;
 
-    // Verifica que el texto escaneado sea el correcto
-    if (decodedText !== "J.M Asociados") {
-        alert("QR incorrecto. Intenta nuevamente.");
-        return;
+  // Verifica que el texto escaneado sea el correcto
+  if (decodedText !== "J.M Asociados") {
+    alert("QR incorrecto. Intenta nuevamente.");
+    return;
+  }
+
+  // Marca que el escaneo ya se procesó
+  scanProcesado = true;
+
+  // Verifica la ubicación antes de proceder
+  checkLocation(
+    function () {
+      // Si la ubicación es correcta, detiene el escáner y registra la asistencia
+      html5QrcodeScanner.clear().then(() => {
+        registrarAsistencia();
+      }).catch((error) => {
+        console.error("Error al detener el escáner", error);
+        // En caso de error, reiniciamos la bandera para permitir reintentos
+        scanProcesado = false;
+      });
+    },
+    function (distance) {
+      // Si la ubicación no es válida, muestra un mensaje y no procede con el registro
+      if (distance !== undefined) {
+        alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
+      } else {
+        alert("No se pudo verificar la ubicación. Intenta nuevamente.");
+      }
+      // Reiniciamos la bandera para permitir reintentos
+      scanProcesado = false;
     }
-
-    // Marca que el escaneo ya se procesó
-    scanProcesado = true;
-
-    // Verifica la ubicación antes de proceder
-    checkLocation(
-        function () {
-            // Si la ubicación es correcta, detiene el escáner y registra la asistencia
-            html5QrcodeScanner.clear().then(() => {
-                registrarAsistencia();
-            }).catch((error) => {
-                console.error("Error al detener el escáner", error);
-                // En caso de error, reiniciamos la bandera para permitir reintentos
-                scanProcesado = false;
-            });
-        },
-        function (distance) {
-            // Si la ubicación no es válida, muestra un mensaje y no procede con el registro
-            if (distance !== undefined) {
-                alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
-            } else {
-                alert("No se pudo verificar la ubicación. Intenta nuevamente.");
-            }
-            // Reiniciamos la bandera para permitir reintentos
-            scanProcesado = false;
-        }
-    );
+  );
 }
 
-
-// Función que maneja los errores de escaneo
 function onScanError(errorMessage) {
-    // No hacer nada si el error no está relacionado con un intento de cargar una imagen
-    if (errorMessage.includes("File input")) {
-        alert("Por favor, usa la cámara para escanear el código QR.");
-        // Reinicia el escáner para que el usuario solo pueda usar la cámara
-        html5QrcodeScanner.clear().then(() => {
-            html5QrcodeScanner.render(onScanSuccess, onScanError);
-        }).catch((error) => {
-            console.error("Error al reiniciar el escáner", error);
-        });
-    }
+  // No hacer nada si el error no está relacionado con un intento de cargar una imagen
+  if (errorMessage.includes("File input")) {
+    alert("Por favor, usa la cámara para escanear el código QR.");
+    // Reinicia el escáner para que el usuario solo pueda usar la cámara
+    html5QrcodeScanner.clear().then(() => {
+      html5QrcodeScanner.render(onScanSuccess, onScanError);
+    }).catch((error) => {
+      console.error("Error al reiniciar el escáner", error);
+    });
+  }
 }
 
 // Configura el escáner en el contenedor "reader" usando la cámara, sin permitir cargar imágenes
 var html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader",
-    {
-        fps: 10,
-        qrbox: 250,
-        videoConstraints: {
-            facingMode: "environment"  // Usamos la cámara trasera del dispositivo
-        },
-        // Deshabilitamos la opción de importar archivos de imagen
-        useFileInput: false
+  "reader",
+  {
+    fps: 10,
+    qrbox: 250,
+    videoConstraints: {
+      facingMode: "environment" // Usamos la cámara trasera del dispositivo
     },
+    // Deshabilitamos la opción de importar archivos de imagen
+    useFileInput: false
+  },
     /* verbose= */ false
 );
 
 // Inicia el escáner solo con la cámara
 html5QrcodeScanner.render(onScanSuccess, onScanError);
 
-// Deshabilitar completamente la carga de archivos (imagen) a través de un evento
+// Deshabilitar completamente la carga de archivos (imagen)
 document.addEventListener('DOMContentLoaded', function () {
-    // Prevenir la carga de archivos (imagen) si se intenta
-    const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) {
-        fileInput.setAttribute('disabled', true);  // Deshabilitamos el campo de archivo
-        // Opcionalmente, podrías agregar un evento que muestre una alerta si se intenta cargar un archivo
-        fileInput.addEventListener('click', function () {
-            alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
-            window.location.href = "employee.html";
-        });
-    }
+  const fileInput = document.querySelector('input[type="file"]');
+  if (fileInput) {
+    fileInput.setAttribute('disabled', true);
+    fileInput.addEventListener('click', function () {
+      alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
+      window.location.href = "employee.html";
+    });
+  }
 });
 
-// Función para registrar la asistencia en Firebase Firestore, permitiendo múltiples entradas y salidas por día
+// ====================
+// Función para registrar la asistencia en Firestore
+// ====================
+
 async function registrarAsistencia() {
-    const user = auth.currentUser;
-    if (!user) return;
+  // En lugar de usar firebase.auth().currentUser, se obtiene el uid desde la cookie de sesión.
+  const session = getCookie("session");
+  if (!session) return;
+  const sessionData = JSON.parse(session);
+  const uid = sessionData.uid;
 
-    const now = new Date();
-    const hour = now.getHours();
-    // Se formatea la fecha en formato YYYY-MM-DD para agrupar los registros diarios
-    const fechaHoy = now.toISOString().split("T")[0];
+  const now = new Date();
+  const hour = now.getHours();
+  // Se formatea la fecha en formato YYYY-MM-DD para agrupar los registros diarios
+  const fechaHoy = now.toISOString().split("T")[0];
 
-    try {
-        // Se consulta todos los registros de asistencia del usuario para el día de hoy
-        const asistenciaQuery = await db.collection("asistencias")
-            .where("userId", "==", user.uid)
-            .where("fecha", "==", fechaHoy)
-            .get();
+  try {
+    // Se consultan todos los registros de asistencia del usuario para el día de hoy
+    const asistenciaQuery = await db.collection("asistencias")
+      .where("userId", "==", uid)
+      .where("fecha", "==", fechaHoy)
+      .get();
 
-        // Número de escaneos ya realizados en el día
-        const scanCount = asistenciaQuery.size;
-        // Si el número de escaneos es par, se registra una entrada; si es impar, se registra una salida
-        const tipo = (scanCount % 2 === 0) ? "entrada" : "salida";
+    // Número de escaneos ya realizados en el día
+    const scanCount = asistenciaQuery.size;
+    // Si el número de escaneos es par, se registra una entrada; si es impar, se registra una salida
+    const tipo = (scanCount % 2 === 0) ? "entrada" : "salida";
 
-        // Determinar el estado según la hora y el tipo de registro
-        let status = "";
-        if (tipo === "entrada") {
-            if (hour < 8) {
-                status = "Llegada temprana";
-            } else if (hour >= 8 && hour < 16) {
-                status = "Llegada tarde";
-            } else {
-                status = "Hora de entrada fuera de horario";
-            }
-        } else { // salida
-            status = (hour < 16) ? "Salida temprana" : "Salida";
-        }
-
-        // Obtener el nombre del empleado desde la colección "usuarios"
-        let nombreEmpleado = user.email; // Por defecto se usa el email
-        const empleadoQuery = await db.collection("usuarios")
-            .where("email", "==", user.email)
-            .limit(1)
-            .get();
-        if (!empleadoQuery.empty) {
-            nombreEmpleado = empleadoQuery.docs[0].data().nombre;
-        }
-
-        // Agregar un nuevo documento en "asistencias" con los datos del escaneo
-        await db.collection("asistencias").add({
-            userId: user.uid,
-            user: nombreEmpleado,
-            fecha: fechaHoy,
-            scanNumber: scanCount + 1,
-            time: now.toLocaleTimeString(),
-            tipo: tipo,    // "entrada" o "salida"
-            status: status
-        });
-
-        // Mostrar mensaje en el elemento "qr-result"
-        let message = "";
-        if (tipo === "entrada") {
-            message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-        } else {
-            message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-        }
-        document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
-    } catch (error) {
-        console.error("Error al registrar asistencia:", error);
+    // Determinar el estado según la hora y el tipo de registro
+    let status = "";
+    if (tipo === "entrada") {
+      if (hour < 8) {
+        status = "Llegada temprana";
+      } else if (hour >= 8 && hour < 16) {
+        status = "Llegada tarde";
+      } else {
+        status = "Hora de entrada fuera de horario";
+      }
+    } else {
+      status = (hour < 16) ? "Salida temprana" : "Salida";
     }
+
+    // Obtener el nombre del empleado desde Firestore.
+    // Se asume que en la cookie también se almacenó el email para facilitar la consulta.
+    let nombreEmpleado = sessionData.email; // Por defecto se usa el email
+    const empleadoQuery = await db.collection("usuarios")
+      .where("email", "==", sessionData.email)
+      .limit(1)
+      .get();
+    if (!empleadoQuery.empty) {
+      nombreEmpleado = empleadoQuery.docs[0].data().nombre;
+    }
+
+    // Agregar un nuevo documento en "asistencias" con los datos del escaneo
+    await db.collection("asistencias").add({
+      userId: uid,
+      user: nombreEmpleado,
+      fecha: fechaHoy,
+      scanNumber: scanCount + 1,
+      time: now.toLocaleTimeString(),
+      tipo: tipo,    // "entrada" o "salida"
+      status: status
+    });
+
+    // Mostrar mensaje en el elemento "qr-result"
+    let message = "";
+    if (tipo === "entrada") {
+      message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
+    } else {
+      message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
+    }
+    document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
+  } catch (error) {
+    console.error("Error al registrar asistencia:", error);
+  }
 }
 
+// ====================
 // Evento para cerrar sesión
+// ====================
+
 document.addEventListener("DOMContentLoaded", function () {
-    const logoutButton = document.getElementById("logout-button");
-    if (logoutButton) {
-        logoutButton.addEventListener("click", function () {
-            logout();
-        });
-    } else {
-        console.error("El botón de cerrar sesión no se encontró en el DOM.");
-    }
+  const logoutButton = document.getElementById("logout-button");
+  if (logoutButton) {
+    logoutButton.addEventListener("click", function () {
+      // Opción 1: Si ya tienes la función logout() definida en auth.js:
+      logout();
+
+      // Opción 2: Eliminar la sesión directamente de localStorage
+      // localStorage.removeItem("session");
+      // window.location.href = "index.html";
+    });
+  } else {
+    console.error("El botón de cerrar sesión no se encontró en el DOM.");
+  }
 });

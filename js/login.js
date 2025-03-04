@@ -1,29 +1,49 @@
-// js/login.js
 document.getElementById("login-form").addEventListener("submit", async function (e) {
     e.preventDefault();
-    const email = document.getElementById("login-email").value;
+
+    // Obtener y validar los datos del formulario
+    const email = document.getElementById("login-email").value.trim();
     const pass = document.getElementById("login-password").value;
+    
+    if (!email || !pass) {
+        alert("Por favor, ingresa un correo y una contraseña válidos.");
+        return;
+    }
+
     try {
-        const userCredential = await auth.signInWithEmailAndPassword(email, pass);
-        const user = userCredential.user;
-        // Consulta el rol del usuario
-        const doc = await db.collection("usuarios").doc(user.uid).get();
-        if (doc.exists) {
-            const role = doc.data().role;
-            if (role === "admin") {
-                window.location.href = "admin.html";
-            } else {
-                window.location.href = "employee.html";
-            }
-        } else {
-            alert("No se encontraron datos del usuario.");
+        // Consulta a la colección "usuarios" filtrando por correo
+        const querySnapshot = await db.collection("usuarios").where("email", "==", email).get();
+        if (querySnapshot.empty) {
+            alert("Usuario no encontrado.");
+            return;
         }
+
+        let userDoc;
+        querySnapshot.forEach(doc => userDoc = doc);
+        if (!userDoc) {
+            alert("Error al obtener los datos del usuario.");
+            return;
+        }
+        const userData = userDoc.data();
+
+        // Comparación de la contraseña encriptada utilizando la función personalizada
+        if (encrypt_data(pass) !== userData.password) {
+            alert("Contraseña incorrecta.");
+            return;
+        }
+        
+        // Crea la sesión usando localStorage (almacenada de forma encriptada)
+        createSession(userDoc.id, 1);
+
+        // Redirige según el rol del usuario
+        window.location.href = userData.role === "admin" ? "admin.html" : "employee.html";
     } catch (error) {
-        alert(error.message);
+        console.error("Error en el inicio de sesión:", error);
+        alert("Error en el inicio de sesión: " + error.message);
     }
 });
 
-// Navegar a la página de registro
+// Redirige a la página de registro
 document.getElementById("go-to-register").addEventListener("click", e => {
     e.preventDefault();
     window.location.href = "register.html";
