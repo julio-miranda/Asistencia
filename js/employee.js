@@ -31,11 +31,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const userData = userDocSnapshot.data();
     const role = userData.role;
-    alert("Rol del usuario: " + role);
+    //alert("Rol del usuario: " + role);
 
     // Verifica que el usuario tenga el rol "empleado" para acceder a esta página
     if (role !== "empleado") {
-      alert("Usuario no autorizado, redirigiendo...");
+      //alert("Usuario no autorizado, redirigiendo...");
       handleUnauthorizedRole(role);
       return;
     }
@@ -213,9 +213,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
 async function registrarAsistencia() {
   alert("Registrando asistencia..."); // Verifica si se llega aquí
-  const session = getSessionData();
-  if (!session) return;
-  const sessionData = JSON.parse(session);
+  const sessionData = getSessionData();
+  if (!sessionData) return;
   const uid = sessionData.uid;
 
   const now = new Date();
