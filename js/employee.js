@@ -187,6 +187,8 @@ const html5QrcodeScanner = new Html5QrcodeScanner(
 // ===================
 async function registrarAsistencia() {
   alert("Registrando asistencia...");
+  // Renueva la sesión (si procede)
+  refreshSession();
   const sessionData = getSessionData();
   if (!sessionData) return;
   const uid = sessionData.uid;
