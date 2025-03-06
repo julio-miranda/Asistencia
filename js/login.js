@@ -33,7 +33,7 @@ document.getElementById("login-form").addEventListener("submit", async function 
         }
 
         // Verificación de IP solo para empleados
-        if (userData.role === "empleado") {
+        /*if (userData.role === "empleado") {
             const ipResponse = await fetch('https://api.ipify.org?format=json');
             const ipData = await ipResponse.json();
             const ip = ipData.ip;
@@ -43,7 +43,7 @@ document.getElementById("login-form").addEventListener("submit", async function 
                 alert("La dirección IP no coincide. Acceso denegado.");
                 return;
             }
-        }
+        }*/
 
         // Crea la sesión usando localStorage (almacenada de forma encriptada)
         createSession(userDoc.id, 1);
