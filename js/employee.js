@@ -3,7 +3,7 @@
 // Coordenadas de la ubicación permitida y radio en metros
 const allowedLat = 13.622928;      // Reemplaza con la latitud deseada
 const allowedLng = -87.8959604;     // Reemplaza con la longitud deseada
-const allowedRadius = 35;          // Radio permitido en metros
+const allowedRadius = 31;          // Radio permitido en metros
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
 function calcularDistancia(lat1, lon1, lat2, lon2) {
