@@ -20,8 +20,8 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
         const adminQuery = await db.collection("usuarios").where("role", "==", "admin").get();
         const role = adminQuery.empty ? "admin" : "empleado"; // Primer usuario será admin, los demás empleados
 
-        // Encriptar la contraseña
-        const hashedPassword = encrypt_data(pass);
+        // Encriptar la contraseña correctamente
+        const hashedPassword = await encrypt_data(pass); // Asegurar que el valor esté resuelto antes de guardarlo
 
         // Guardar los datos del usuario en Firestore
         await db.collection("usuarios").add({
@@ -29,7 +29,7 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
             identificacion: numero,
             nacimiento: fecha,
             email: email,
-            password: hashedPassword,
+            password: hashedPassword,  // Ahora este valor ya no es una Promise
             descripcion: "Sin descripción",
             salarioH: 1.25,
             role: role,
