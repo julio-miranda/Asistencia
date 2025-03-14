@@ -58,20 +58,22 @@ checkUserSession(function (uid) {
     });
 });
 
-// Bandera para evitar múltiples procesamientos simultáneos
+// Bandera para evitar múltiples procesamientos
 let scanProcesado = false;
 
-// Función de éxito para el escaneo mediante cámara
+// Callback cuando se detecta un QR, ya sea desde la cámara o desde una imagen cargada
 function onScanSuccess(decodedText, decodedResult) {
     if (scanProcesado) return;
-
+    
+    // Se verifica que el contenido del QR sea el esperado
     if (decodedText !== "J.M Asociados") {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
     }
-
+    
     scanProcesado = true;
-
+    
+    // Se limpia el escáner y se registra la asistencia
     html5QrcodeScanner.clear().then(() => {
         registrarAsistencia();
     }).catch((error) => {
@@ -80,69 +82,28 @@ function onScanSuccess(decodedText, decodedResult) {
     });
 }
 
-// Función de error para el escaneo mediante cámara
+// Callback para errores en el escaneo (ya sea en carga de imagen o cámara)
 function onScanError(errorMessage) {
-    if (errorMessage.includes("File input")) {
-        alert("Por favor, usa la cámara o carga una imagen para escanear el código QR.");
-        html5QrcodeScanner.clear().then(() => {
-            html5QrcodeScanner.render(onScanSuccess, onScanError);
-        }).catch((error) => {
-            console.error("Error al reiniciar el escáner", error);
-        });
-    }
+    console.error("Error de escaneo:", errorMessage);
+    // Se puede implementar lógica adicional si se requiere tratar ciertos errores
 }
 
-// Configura el escáner para la cámara en el contenedor "reader"
+// Configura el escáner en el contenedor "reader"
+// Se activa el uso de carga de archivos (useFileInput: true) para que el usuario pueda seleccionar una imagen
 var html5QrcodeScanner = new Html5QrcodeScanner(
     "reader",
     {
         fps: 10,
         qrbox: 250,
         videoConstraints: { facingMode: "environment" },
-        useFileInput: false // Se deshabilita el file input interno para usar uno propio
+        useFileInput: true // Permite cargar imágenes además de usar la cámara
     },
     false
 );
 
 html5QrcodeScanner.render(onScanSuccess, onScanError);
 
-// Habilitar la carga de imagen para escanear QR mediante un input file
-document.addEventListener('DOMContentLoaded', function () {
-    const fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) {
-        // Se asegura de que el input file esté habilitado
-        fileInput.removeAttribute('disabled');
-        fileInput.addEventListener('change', function () {
-            if (scanProcesado) return; // Evitar procesamiento múltiple
-            const file = fileInput.files[0];
-            if (file) {
-                // Se crea una instancia temporal para escanear la imagen
-                let html5QrCode = new Html5Qrcode("reader");
-                scanProcesado = true;
-                html5QrCode.scanFile(file, true)
-                    .then(decodedText => {
-                        if (decodedText !== "J.M Asociados") {
-                            alert("QR incorrecto. Intenta nuevamente.");
-                            scanProcesado = false;
-                            return;
-                        }
-                        // QR correcto: se limpia la instancia y se procede a registrar la asistencia
-                        html5QrCode.clear().then(() => {
-                            registrarAsistencia();
-                        }).catch((error) => {
-                            console.error("Error al detener el escáner de archivo", error);
-                            scanProcesado = false;
-                        });
-                    })
-                    .catch(err => {
-                        alert("No se pudo leer el código QR. Intenta con otra imagen.");
-                        console.error("Error scanning file: ", err);
-                        scanProcesado = false;
-                    });
-            }
-        });
-    }
-});
+// Nota: Se eliminó el código que deshabilitaba el file input para que se permita la carga de imágenes
 
 // Función para registrar asistencia con verificación de ubicación
 async function registrarAsistencia() {
@@ -152,6 +113,7 @@ async function registrarAsistencia() {
         return;
     }
     const uid = sessionData.uid;
+
     const now = new Date();
     const hour = now.getHours();
     const fechaHoy = now.toISOString().split("T")[0];
@@ -182,21 +144,23 @@ async function registrarAsistencia() {
 
         // Verificar ubicación antes de registrar asistencia
         checkLocation(async () => {
-            // Verificar si ya existe un registro de asistencia para hoy
+            // Verificar si hay un registro de asistencia hoy
             const asistenciaRef = db.collection("asistencias").doc(`${uid}_${fechaHoy}`);
             const asistenciaDoc = await asistenciaRef.get();
 
             if (!asistenciaDoc.exists) {
-                // Registrar entrada
+                // Primera vez escaneando hoy -> Registrar entrada
                 let status = hour >= 8 ? "Tarde" : "A tiempo";
+
                 if (status === "Tarde") {
-                    // Solicitar justificación si llega tarde
+                    // Solicitar justificación para la llegada tarde
                     const justification = prompt("Llegaste tarde. Ingresa la razón:");
                     if (!justification) {
                         alert("Debes justificar tu llegada tarde.");
                         scanProcesado = false;
                         return;
                     }
+
                     await asistenciaRef.set({
                         userId: uid,
                         user: userData.nombre,
@@ -218,15 +182,17 @@ async function registrarAsistencia() {
                         status: status
                     });
                 }
+
                 alert(`Entrada registrada a las ${now.toLocaleTimeString()} (${status}).`);
             } else {
-                // Registrar salida
+                // Segunda vez escaneando hoy -> Registrar salida
                 await asistenciaRef.update({
                     salida: now.toLocaleTimeString()
                 });
+
                 alert(`Salida registrada a las ${now.toLocaleTimeString()}.`);
             }
-            // Reiniciar la bandera para permitir nuevos escaneos
+            // Reiniciar bandera para permitir nuevos escaneos
             scanProcesado = false;
         }, (distance) => {
             if (distance !== undefined) {
