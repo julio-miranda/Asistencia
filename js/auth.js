@@ -4,51 +4,99 @@
 // Funciones de encriptación y desencriptación
 // ===================
 
-/**
- * Encripta un string utilizando un algoritmo personalizado.
- * @param {string} data - El string a encriptar.
- * @returns {string} - El string encriptado en formato hexadecimal.
- */
-function encrypt_data(data) {
-    data = unescape(encodeURIComponent(data));
-    let newString = '';
-    for (let i = 0; i < data.length; i += 2) {
-        const char = data.charCodeAt(i);
-        if (i + 1 < data.length) {
-            const nextChar = data.charCodeAt(i + 1) - 31;
-            const combinedCharCode = char + "" + nextChar.toLocaleString('en', { minimumIntegerDigits: 2 });
-            newString += String.fromCharCode(parseInt(combinedCharCode, 10));
-        } else {
-            newString += data.charAt(i);
-        }
+// Función auxiliar: Convierte un ArrayBuffer a una cadena hexadecimal
+function arrayBufferToHex(buffer) {
+    return Array.from(new Uint8Array(buffer))
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+}
+
+// Función auxiliar: Convierte una cadena hexadecimal a ArrayBuffer
+function hexToArrayBuffer(hex) {
+    if (hex.length % 2 !== 0) throw new Error("Cadena hexadecimal inválida");
+    const buffer = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < hex.length; i += 2) {
+        buffer[i / 2] = parseInt(hex.substr(i, 2), 16);
     }
-    return newString
-        .split("")
-        .reduce((hex, c) => hex + c.charCodeAt(0).toString(16).padStart(4, "0"), "");
+    return buffer;
+}
+
+// Deriva una clave utilizando PBKDF2 a partir de una contraseña y una sal
+async function deriveKey(password, salt) {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+    );
+    return crypto.subtle.deriveKey(
+        {
+            name: "PBKDF2",
+            salt: salt,
+            iterations: 100000,
+            hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+    );
 }
 
 /**
- * Desencripta un string previamente encriptado.
- * @param {string} encryptedData - El string encriptado en formato hexadecimal.
- * @returns {string} - El string desencriptado.
+ * Encripta un string utilizando AES-GCM.
+ * @param {string} data - El texto a encriptar.
+ * @param {string} password - Contraseña o frase secreta para derivar la clave.
+ * @returns {Promise<Object>} - Objeto con la sal, iv y ciphertext en formato hexadecimal.
  */
-function decrypt_data(encryptedData) {
-    let newString = '';
-    const hexChunks = encryptedData.match(/.{1,4}/g);
-    const decodedString = hexChunks.reduce((acc, hex) => acc + String.fromCharCode(parseInt(hex, 16)), "");
-    
-    for (let i = 0; i < decodedString.length; i++) {
-        const char = decodedString.charCodeAt(i);
-        if (char > 132) {
-            const codeStr = char.toString(10);
-            const firstCharCode = parseInt(codeStr.substring(0, codeStr.length - 2), 10);
-            const lastCharCode = parseInt(codeStr.substring(codeStr.length - 2), 10) + 31;
-            newString += String.fromCharCode(firstCharCode) + String.fromCharCode(lastCharCode);
-        } else {
-            newString += decodedString.charAt(i);
-        }
-    }
-    return newString;
+async function encrypt_data(data, password) {
+    const encoder = new TextEncoder();
+    const salt = crypto.getRandomValues(new Uint8Array(16)); // Sal aleatoria de 16 bytes
+    const iv = crypto.getRandomValues(new Uint8Array(12));    // IV aleatorio de 12 bytes para AES-GCM
+    const key = await deriveKey(password, salt);
+
+    const ciphertextBuffer = await crypto.subtle.encrypt(
+        {
+            name: "AES-GCM",
+            iv: iv
+        },
+        key,
+        encoder.encode(data)
+    );
+
+    return {
+        salt: arrayBufferToHex(salt),
+        iv: arrayBufferToHex(iv),
+        ciphertext: arrayBufferToHex(ciphertextBuffer)
+    };
+}
+
+/**
+ * Desencripta un string previamente encriptado con AES-GCM.
+ * @param {Object} encryptedData - Objeto con las propiedades: salt, iv y ciphertext (en hexadecimal).
+ * @param {string} password - Contraseña o frase secreta utilizada para derivar la clave.
+ * @returns {Promise<string>} - El texto desencriptado.
+ */
+async function decrypt_data(encryptedData, password) {
+    const decoder = new TextDecoder();
+    const salt = hexToArrayBuffer(encryptedData.salt);
+    const iv = hexToArrayBuffer(encryptedData.iv);
+    const ciphertext = hexToArrayBuffer(encryptedData.ciphertext);
+
+    const key = await deriveKey(password, salt);
+
+    const decryptedBuffer = await crypto.subtle.decrypt(
+        {
+            name: "AES-GCM",
+            iv: iv
+        },
+        key,
+        ciphertext
+    );
+
+    return decoder.decode(decryptedBuffer);
 }
 
 // ===================
