@@ -1,8 +1,8 @@
 // js/employee.js
 // Coordenadas de la ubicación permitida y radio en metros
-let allowedLat = null;      // Reemplaza con la latitud deseada
-let allowedLng = null;      // Reemplaza con la longitud deseada
-const allowedRadius = 10;          // Radio permitido en metros
+let allowedLat = null;      // Se actualizará con la latitud de la empresa
+let allowedLng = null;      // Se actualizará con la longitud de la empresa
+const allowedRadius = 10;   // Radio permitido en metros
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
 function calcularDistancia(lat1, lon1, lat2, lon2) {
@@ -13,8 +13,8 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
     const Δλ = (lon2 - lon1) * Math.PI / 180;
 
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) *
-        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distancia en metros
@@ -58,10 +58,10 @@ checkUserSession(function (uid) {
     });
 });
 
-// Bandera para evitar múltiples procesamientos
+// Bandera para evitar múltiples procesamientos simultáneos
 let scanProcesado = false;
 
-// Actualización de onScanSuccess sin verificación de ubicación previa
+// Función de éxito para el escaneo mediante cámara
 function onScanSuccess(decodedText, decodedResult) {
     if (scanProcesado) return;
 
@@ -80,9 +80,10 @@ function onScanSuccess(decodedText, decodedResult) {
     });
 }
 
+// Función de error para el escaneo mediante cámara
 function onScanError(errorMessage) {
     if (errorMessage.includes("File input")) {
-        alert("Por favor, usa la cámara para escanear el código QR.");
+        alert("Por favor, usa la cámara o carga una imagen para escanear el código QR.");
         html5QrcodeScanner.clear().then(() => {
             html5QrcodeScanner.render(onScanSuccess, onScanError);
         }).catch((error) => {
@@ -91,28 +92,54 @@ function onScanError(errorMessage) {
     }
 }
 
-// Configura el escáner en el contenedor "reader"
+// Configura el escáner para la cámara en el contenedor "reader"
 var html5QrcodeScanner = new Html5QrcodeScanner(
     "reader",
     {
         fps: 10,
         qrbox: 250,
         videoConstraints: { facingMode: "environment" },
-        useFileInput: false
+        useFileInput: false // Se deshabilita el file input interno para usar uno propio
     },
     false
 );
 
 html5QrcodeScanner.render(onScanSuccess, onScanError);
 
-// Deshabilitar carga de archivos
+// Habilitar la carga de imagen para escanear QR mediante un input file
 document.addEventListener('DOMContentLoaded', function () {
     const fileInput = document.querySelector('input[type="file"]');
     if (fileInput) {
-        fileInput.setAttribute('disabled', true);
-        fileInput.addEventListener('click', function () {
-            alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
-            window.location.href = "employee.html";
+        // Se asegura de que el input file esté habilitado
+        fileInput.removeAttribute('disabled');
+        fileInput.addEventListener('change', function () {
+            if (scanProcesado) return; // Evitar procesamiento múltiple
+            const file = fileInput.files[0];
+            if (file) {
+                // Se crea una instancia temporal para escanear la imagen
+                let html5QrCode = new Html5Qrcode("reader");
+                scanProcesado = true;
+                html5QrCode.scanFile(file, true)
+                    .then(decodedText => {
+                        if (decodedText !== "J.M Asociados") {
+                            alert("QR incorrecto. Intenta nuevamente.");
+                            scanProcesado = false;
+                            return;
+                        }
+                        // QR correcto: se limpia la instancia y se procede a registrar la asistencia
+                        html5QrCode.clear().then(() => {
+                            registrarAsistencia();
+                        }).catch((error) => {
+                            console.error("Error al detener el escáner de archivo", error);
+                            scanProcesado = false;
+                        });
+                    })
+                    .catch(err => {
+                        alert("No se pudo leer el código QR. Intenta con otra imagen.");
+                        console.error("Error scanning file: ", err);
+                        scanProcesado = false;
+                    });
+            }
         });
     }
 });
@@ -125,7 +152,6 @@ async function registrarAsistencia() {
         return;
     }
     const uid = sessionData.uid;
-
     const now = new Date();
     const hour = now.getHours();
     const fechaHoy = now.toISOString().split("T")[0];
@@ -156,23 +182,21 @@ async function registrarAsistencia() {
 
         // Verificar ubicación antes de registrar asistencia
         checkLocation(async () => {
-            // Verificar si hay un registro de asistencia hoy
+            // Verificar si ya existe un registro de asistencia para hoy
             const asistenciaRef = db.collection("asistencias").doc(`${uid}_${fechaHoy}`);
             const asistenciaDoc = await asistenciaRef.get();
 
             if (!asistenciaDoc.exists) {
-                // Primera vez escaneando hoy -> Registrar entrada
+                // Registrar entrada
                 let status = hour >= 8 ? "Tarde" : "A tiempo";
-
                 if (status === "Tarde") {
-                    // Mostrar textarea para justificación
+                    // Solicitar justificación si llega tarde
                     const justification = prompt("Llegaste tarde. Ingresa la razón:");
                     if (!justification) {
                         alert("Debes justificar tu llegada tarde.");
                         scanProcesado = false;
                         return;
                     }
-
                     await asistenciaRef.set({
                         userId: uid,
                         user: userData.nombre,
@@ -194,17 +218,15 @@ async function registrarAsistencia() {
                         status: status
                     });
                 }
-
                 alert(`Entrada registrada a las ${now.toLocaleTimeString()} (${status}).`);
             } else {
-                // Segunda vez escaneando hoy -> Registrar salida
+                // Registrar salida
                 await asistenciaRef.update({
                     salida: now.toLocaleTimeString()
                 });
-
                 alert(`Salida registrada a las ${now.toLocaleTimeString()}.`);
             }
-            // Reiniciar bandera para permitir nuevos escaneos
+            // Reiniciar la bandera para permitir nuevos escaneos
             scanProcesado = false;
         }, (distance) => {
             if (distance !== undefined) {
