@@ -1,9 +1,8 @@
 // js/employee.js
-
 // Coordenadas de la ubicación permitida y radio en metros
-const allowedLat = 13.622928;      // Reemplaza con la latitud deseada
-const allowedLng = -87.8959604;     // Reemplaza con la longitud deseada
-const allowedRadius = 31;          // Radio permitido en metros
+let allowedLat = null;      // Reemplaza con la latitud deseada
+let allowedLng = null;     // Reemplaza con la longitud deseada
+const allowedRadius = 10;          // Radio permitido en metros
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
 function calcularDistancia(lat1, lon1, lat2, lon2) {
@@ -14,8 +13,8 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
     const Δλ = (lon2 - lon1) * Math.PI / 180;
 
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distancia en metros
@@ -29,7 +28,6 @@ function checkLocation(successCallback, errorCallback) {
                 const currentLat = position.coords.latitude;
                 const currentLng = position.coords.longitude;
                 const distance = calcularDistancia(allowedLat, allowedLng, currentLat, currentLng);
-                // Verifica si la distancia está dentro del radio permitido
                 if (distance <= allowedRadius) {
                     successCallback();
                 } else {
@@ -47,9 +45,8 @@ function checkLocation(successCallback, errorCallback) {
     }
 }
 
-// Verifica que el usuario tenga una sesión válida y rol "empleado" usando localStorage
-checkUserSession(function(uid) {
-    // Se asume que en Firestore el documento de usuario tiene como ID el uid de la sesión
+// Verifica que el usuario tenga una sesión válida y rol "empleado"
+checkUserSession(function (uid) {
     db.collection("usuarios").doc(uid).get().then(doc => {
         if (!doc.exists || doc.data().role !== "empleado") {
             window.location.href = "index.html";
@@ -65,49 +62,38 @@ checkUserSession(function(uid) {
 let scanProcesado = false;
 
 function onScanSuccess(decodedText, decodedResult) {
-    // Si ya se procesó un escaneo, se ignoran los siguientes
     if (scanProcesado) return;
 
-    // Verifica que el texto escaneado sea el correcto
     if (decodedText !== "J.M Asociados") {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
     }
 
-    // Marca que el escaneo ya se procesó
     scanProcesado = true;
 
-    // Verifica la ubicación antes de proceder
     checkLocation(
         function () {
-            // Si la ubicación es correcta, detiene el escáner y registra la asistencia
             html5QrcodeScanner.clear().then(() => {
                 registrarAsistencia();
             }).catch((error) => {
                 console.error("Error al detener el escáner", error);
-                // En caso de error, reiniciamos la bandera para permitir reintentos
                 scanProcesado = false;
             });
         },
         function (distance) {
-            // Si la ubicación no es válida, muestra un mensaje y no procede con el registro
             if (distance !== undefined) {
                 alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
             } else {
                 alert("No se pudo verificar la ubicación. Intenta nuevamente.");
             }
-            // Reiniciamos la bandera para permitir reintentos
             scanProcesado = false;
         }
     );
 }
 
-// Función que maneja los errores de escaneo
 function onScanError(errorMessage) {
-    // No hacer nada si el error no está relacionado con un intento de cargar una imagen
     if (errorMessage.includes("File input")) {
         alert("Por favor, usa la cámara para escanear el código QR.");
-        // Reinicia el escáner para que el usuario solo pueda usar la cámara
         html5QrcodeScanner.clear().then(() => {
             html5QrcodeScanner.render(onScanSuccess, onScanError);
         }).catch((error) => {
@@ -116,31 +102,25 @@ function onScanError(errorMessage) {
     }
 }
 
-// Configura el escáner en el contenedor "reader" usando la cámara, sin permitir cargar imágenes
+// Configura el escáner en el contenedor "reader"
 var html5QrcodeScanner = new Html5QrcodeScanner(
     "reader",
     {
         fps: 10,
         qrbox: 250,
-        videoConstraints: {
-            facingMode: "environment"  // Usamos la cámara trasera del dispositivo
-        },
-        // Deshabilitamos la opción de importar archivos de imagen
+        videoConstraints: { facingMode: "environment" },
         useFileInput: false
     },
-    /* verbose= */ false
+    false
 );
 
-// Inicia el escáner solo con la cámara
 html5QrcodeScanner.render(onScanSuccess, onScanError);
 
-// Deshabilitar completamente la carga de archivos (imagen) a través de un evento
+// Deshabilitar carga de archivos
 document.addEventListener('DOMContentLoaded', function () {
-    // Prevenir la carga de archivos (imagen) si se intenta
     const fileInput = document.querySelector('input[type="file"]');
     if (fileInput) {
-        fileInput.setAttribute('disabled', true);  // Deshabilitamos el campo de archivo
-        // Opcionalmente, se puede agregar un evento que muestre una alerta si se intenta cargar un archivo
+        fileInput.setAttribute('disabled', true);
         fileInput.addEventListener('click', function () {
             alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
             window.location.href = "employee.html";
@@ -148,70 +128,89 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Función para registrar la asistencia en Firebase Firestore, permitiendo múltiples entradas y salidas por día
+
+// Función para registrar asistencia con verificación de ubicación
 async function registrarAsistencia() {
-    // Obtener datos de sesión desde localStorage
     const sessionData = getSessionData();
     if (!sessionData) return;
     const uid = sessionData.uid;
 
     const now = new Date();
     const hour = now.getHours();
-    // Se formatea la fecha en formato YYYY-MM-DD para agrupar los registros diarios
     const fechaHoy = now.toISOString().split("T")[0];
 
     try {
-        // Se consulta todos los registros de asistencia del usuario para el día de hoy
-        const asistenciaQuery = await db.collection("asistencias")
-            .where("userId", "==", uid)
-            .where("fecha", "==", fechaHoy)
-            .get();
+        // Obtener datos del usuario
+        const usuarioDoc = await db.collection("usuarios").doc(uid).get();
+        if (!usuarioDoc.exists) {
+            console.error("Usuario no encontrado.");
+            return;
+        }
 
-        // Número de escaneos ya realizados en el día
-        const scanCount = asistenciaQuery.size;
-        // Si el número de escaneos es par, se registra una entrada; si es impar, se registra una salida
-        const tipo = (scanCount % 2 === 0) ? "entrada" : "salida";
+        const userData = usuarioDoc.data();
+        const empresa = userData.empresa;
 
-        // Determinar el estado según la hora y el tipo de registro
-        let status = "";
-        if (tipo === "entrada") {
-            if (hour < 8) {
-                status = "Llegada temprana";
-            } else if (hour >= 8 && hour < 16) {
-                status = "Llegada tarde";
+        // Obtener la ubicación de la empresa
+        const empresaDoc = await db.collection("empresas").doc(empresa).get();
+        if (empresaDoc.exists) {
+            const empresaData = empresaDoc.data();
+            allowedLat = empresaData.ubicacion.lat;
+            allowedLng = empresaData.ubicacion.lng;
+        }
+
+        // Verificar ubicación antes de registrar asistencia
+        checkLocation(async () => {
+            // Verificar si hay un registro de asistencia hoy
+            const asistenciaRef = db.collection("asistencias").doc(`${uid}_${fechaHoy}`);
+            const asistenciaDoc = await asistenciaRef.get();
+
+            if (!asistenciaDoc.exists) {
+                // Primera vez escaneando hoy -> Registrar entrada
+                let status = hour >= 8 ? "Tarde" : "A tiempo";
+
+                if (status === "Tarde") {
+                    // Mostrar textarea para justificación
+                    const justification = prompt("Llegaste tarde. Ingresa la razón:");
+                    if (!justification) {
+                        alert("Debes justificar tu llegada tarde.");
+                        return;
+                    }
+
+                    await asistenciaRef.set({
+                        userId: uid,
+                        user: userData.nombre,
+                        empresa: empresa,
+                        fecha: fechaHoy,
+                        entrada: now.toLocaleTimeString(),
+                        salida: null,
+                        status: status,
+                        justificacion: justification
+                    });
+                } else {
+                    await asistenciaRef.set({
+                        userId: uid,
+                        user: userData.nombre,
+                        empresa: empresa,
+                        fecha: fechaHoy,
+                        entrada: now.toLocaleTimeString(),
+                        salida: null,
+                        status: status
+                    });
+                }
+
+                alert(`Entrada registrada a las ${now.toLocaleTimeString()} (${status}).`);
             } else {
-                status = "Hora de entrada fuera de horario";
+                // Segunda vez escaneando hoy -> Registrar salida
+                await asistenciaRef.update({
+                    salida: now.toLocaleTimeString()
+                });
+
+                alert(`Salida registrada a las ${now.toLocaleTimeString()}.`);
             }
-        } else { // salida
-            status = (hour < 16) ? "Salida temprana" : "Salida";
-        }
-
-        // Obtener el nombre del empleado desde la colección "usuarios" utilizando el uid
-        let nombreEmpleado = "Usuario desconocido";
-        const empleadoDoc = await db.collection("usuarios").doc(uid).get();
-        if (empleadoDoc.exists) {
-            nombreEmpleado = empleadoDoc.data().nombre;
-        }
-
-        // Agregar un nuevo documento en "asistencias" con los datos del escaneo
-        await db.collection("asistencias").add({
-            userId: uid,
-            user: nombreEmpleado,
-            fecha: fechaHoy,
-            scanNumber: scanCount + 1,
-            time: now.toLocaleTimeString(),
-            tipo: tipo,    // "entrada" o "salida"
-            status: status
+        }, (distance) => {
+            alert(`Estás fuera del área permitida. Distancia: ${Math.round(distance)} metros.`);
         });
 
-        // Mostrar mensaje en el elemento "qr-result"
-        let message = "";
-        if (tipo === "entrada") {
-            message = `Entrada registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-        } else {
-            message = `Salida registrada a las ${now.toLocaleTimeString()} (${status}). Escaneo #${scanCount + 1}`;
-        }
-        document.getElementById("qr-result").innerHTML = `<p>${message}</p>`;
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
     }

@@ -1,12 +1,14 @@
-// js/register.js
 document.getElementById("register-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const nombre   = document.getElementById("register-nombre").value;
-    const numero   = document.getElementById("register-numero").value;
-    const fecha    = document.getElementById("register-Fecha").value;
-    const email    = document.getElementById("register-email").value;
-    const pass     = document.getElementById("register-password").value;
-    const pass2    = document.getElementById("register-password2").value;
+    const nombre     = document.getElementById("register-nombre").value;
+    const numero     = document.getElementById("register-numero").value;
+    const fecha      = document.getElementById("register-Fecha").value;
+    const empresa    = document.getElementById("register-empresa").value;
+    const direccion  = document.getElementById("register-direccion").value;
+    const telefono   = document.getElementById("register-telefono").value;
+    const email      = document.getElementById("register-email").value;
+    const pass       = document.getElementById("register-password").value;
+    const pass2      = document.getElementById("register-password2").value;
 
     if (pass !== pass2) {
         alert("Las contraseñas no coinciden");
@@ -18,14 +20,6 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
         const adminQuery = await db.collection("usuarios").where("role", "==", "admin").get();
         const role = adminQuery.empty ? "admin" : "empleado"; // Primer usuario será admin, los demás empleados
 
-        // Obtener la IP solo si el usuario es un empleado
-        let ip = null;
-        if (role === "empleado") {
-            const response = await fetch("https://api.ipify.org?format=json");
-            const data = await response.json();
-            ip = data.ip;  // IP pública del dispositivo
-        }
-
         // Encriptar la contraseña
         const hashedPassword = encrypt_data(pass);
 
@@ -35,11 +29,13 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
             identificacion: numero,
             nacimiento: fecha,
             email: email,
-            password: hashedPassword, 
+            password: hashedPassword,
             descripcion: "Sin descripción",
             salarioH: 1.25,
             role: role,
-            ip: ip // Solo se agrega la IP si el usuario es empleado
+            empresa: empresa,
+            direccion: direccion,
+            telefono: telefono
         });
 
         alert("Registro exitoso. Ahora inicia sesión.");
