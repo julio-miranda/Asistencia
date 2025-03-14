@@ -1,5 +1,4 @@
 // js/employee.js
-
 // Coordenadas de la ubicación permitida y radio en metros
 let allowedLat = null;      // Se actualizará con la latitud de la empresa
 let allowedLng = null;      // Se actualizará con la longitud de la empresa
@@ -92,6 +91,58 @@ function onScanError(errorMessage) {
         });
     }
 }
+
+// Configura el escáner para la cámara en el contenedor "reader"
+var html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    {
+        fps: 10,
+        qrbox: 250,
+        videoConstraints: { facingMode: "environment" },
+        useFileInput: false // Se deshabilita el file input interno para usar uno propio
+    },
+    false
+);
+
+html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+// Habilitar la carga de imagen para escanear QR mediante un input file
+document.addEventListener('DOMContentLoaded', function () {
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+        // Se asegura de que el input file esté habilitado
+        fileInput.removeAttribute('disabled');
+        fileInput.addEventListener('change', function () {
+            if (scanProcesado) return; // Evitar procesamiento múltiple
+            const file = fileInput.files[0];
+            if (file) {
+                // Se crea una instancia temporal para escanear la imagen
+                let html5QrCode = new Html5Qrcode("reader");
+                scanProcesado = true;
+                html5QrCode.scanFile(file, true)
+                    .then(decodedText => {
+                        if (decodedText !== "J.M Asociados") {
+                            alert("QR incorrecto. Intenta nuevamente.");
+                            scanProcesado = false;
+                            return;
+                        }
+                        // QR correcto: se limpia la instancia y se procede a registrar la asistencia
+                        html5QrCode.clear().then(() => {
+                            registrarAsistencia();
+                        }).catch((error) => {
+                            console.error("Error al detener el escáner de archivo", error);
+                            scanProcesado = false;
+                        });
+                    })
+                    .catch(err => {
+                        alert("No se pudo leer el código QR. Intenta con otra imagen.");
+                        console.error("Error scanning file: ", err);
+                        scanProcesado = false;
+                    });
+            }
+        });
+    }
+});
 
 // Función para registrar asistencia con verificación de ubicación
 async function registrarAsistencia() {
@@ -192,76 +243,8 @@ async function registrarAsistencia() {
     }
 }
 
-// Inicializar la funcionalidad una vez que el DOM esté cargado
-document.addEventListener('DOMContentLoaded', function () {
-    // Verificar existencia del contenedor para la cámara
-    const cameraReader = document.getElementById("reader");
-    if (!cameraReader) {
-        console.error("El contenedor 'reader' no se encontró en el DOM.");
-        return;
-    }
-    
-    // Crear (o usar) un contenedor separado para el escaneo de archivos
-    let fileReaderDiv = document.getElementById("reader-file");
-    if (!fileReaderDiv) {
-        fileReaderDiv = document.createElement("div");
-        fileReaderDiv.id = "reader-file";
-        fileReaderDiv.style.display = "none";
-        document.body.appendChild(fileReaderDiv);
-    }
-
-    // Configura el escáner para la cámara en el contenedor "reader"
-    window.html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader",
-        {
-            fps: 10,
-            qrbox: 250,
-            videoConstraints: { facingMode: "environment" },
-            useFileInput: false // Se deshabilita el file input interno para usar uno propio
-        },
-        false
-    );
-    html5QrcodeScanner.render(onScanSuccess, onScanError);
-
-    // Habilitar la carga de imagen para escanear QR mediante el input file
-    const fileInput = document.getElementById("file-input");
-    if (fileInput) {
-        fileInput.removeAttribute('disabled');
-        fileInput.addEventListener('change', function () {
-            if (scanProcesado) return; // Evitar procesamiento múltiple
-            const file = fileInput.files[0];
-            if (file) {
-                scanProcesado = true;
-                // Crear una instancia separada para el escaneo desde archivo usando "reader-file" como contenedor
-                let html5QrCodeForFile = new Html5Qrcode("reader-file");
-                html5QrCodeForFile.scanFile(file, true)
-                    .then(decodedText => {
-                        if (decodedText !== "J.M Asociados") {
-                            alert("QR incorrecto. Intenta nuevamente.");
-                            scanProcesado = false;
-                            html5QrCodeForFile.clear().catch(error => {
-                                console.error("Error al limpiar el escáner de archivo", error);
-                            });
-                            return;
-                        }
-                        // QR correcto: se limpia la instancia y se procede a registrar la asistencia
-                        html5QrCodeForFile.clear().then(() => {
-                            registrarAsistencia();
-                        }).catch((error) => {
-                            console.error("Error al detener el escáner de archivo", error);
-                            scanProcesado = false;
-                        });
-                    })
-                    .catch(err => {
-                        alert("No se pudo leer el código QR. Intenta con otra imagen.");
-                        console.error("Error scanning file: ", err);
-                        scanProcesado = false;
-                    });
-            }
-        });
-    }
-
-    // Evento para cerrar sesión
+// Evento para cerrar sesión
+document.addEventListener("DOMContentLoaded", function () {
     const logoutButton = document.getElementById("logout-button");
     if (logoutButton) {
         logoutButton.addEventListener("click", function () {
