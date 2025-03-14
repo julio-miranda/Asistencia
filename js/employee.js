@@ -1,4 +1,5 @@
 // js/employee.js
+
 // Coordenadas de la ubicación permitida y radio en metros
 let allowedLat = null;      // Se actualizará con la latitud de la empresa
 let allowedLng = null;      // Se actualizará con la longitud de la empresa
@@ -45,7 +46,8 @@ function checkLocation(successCallback, errorCallback) {
     }
 }
 
-// Verifica que el usuario tenga una sesión válida y rol "empleado"
+// Se asume que existen funciones como checkUserSession, getSessionData y logout definidas en otros archivos
+// Ejemplo de verificación de sesión para rol "empleado"
 checkUserSession(function (uid) {
     db.collection("usuarios").doc(uid).get().then(doc => {
         if (!doc.exists || doc.data().role !== "empleado") {
@@ -58,52 +60,41 @@ checkUserSession(function (uid) {
     });
 });
 
-// Bandera para evitar múltiples procesamientos
+// Bandera para evitar múltiples procesamientos simultáneos
 let scanProcesado = false;
 
-// Callback cuando se detecta un QR, ya sea desde la cámara o desde una imagen cargada
+// Callback cuando se detecta un QR (ya sea desde la cámara o al cargar una imagen)
 function onScanSuccess(decodedText, decodedResult) {
     if (scanProcesado) return;
-    
-    // Se verifica que el contenido del QR sea el esperado
+
+    // Verificar que el contenido del QR sea el esperado
     if (decodedText !== "J.M Asociados") {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
     }
-    
+
     scanProcesado = true;
-    
-    // Se limpia el escáner y se registra la asistencia
-    html5QrcodeScanner.clear().then(() => {
+
+    // Intentar limpiar el escáner; se valida si clear() devuelve una promesa
+    let clearResult = html5QrcodeScanner.clear();
+    if (clearResult && typeof clearResult.then === "function") {
+        clearResult.then(() => {
+            registrarAsistencia();
+        }).catch((error) => {
+            console.error("Error al detener el escáner:", error);
+            scanProcesado = false;
+        });
+    } else {
+        // Si clear() no devuelve una promesa, se procede directamente
         registrarAsistencia();
-    }).catch((error) => {
-        console.error("Error al detener el escáner", error);
-        scanProcesado = false;
-    });
+    }
 }
 
-// Callback para errores en el escaneo (ya sea en carga de imagen o cámara)
+// Callback para errores en el escaneo (tanto de cámara como de carga de imagen)
 function onScanError(errorMessage) {
     console.error("Error de escaneo:", errorMessage);
-    // Se puede implementar lógica adicional si se requiere tratar ciertos errores
+    // Aquí se puede agregar lógica adicional para manejar errores específicos
 }
-
-// Configura el escáner en el contenedor "reader"
-// Se activa el uso de carga de archivos (useFileInput: true) para que el usuario pueda seleccionar una imagen
-var html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader",
-    {
-        fps: 10,
-        qrbox: 250,
-        videoConstraints: { facingMode: "environment" },
-        useFileInput: true // Permite cargar imágenes además de usar la cámara
-    },
-    false
-);
-
-html5QrcodeScanner.render(onScanSuccess, onScanError);
-
-// Nota: Se eliminó el código que deshabilitaba el file input para que se permita la carga de imágenes
 
 // Función para registrar asistencia con verificación de ubicación
 async function registrarAsistencia() {
@@ -142,9 +133,9 @@ async function registrarAsistencia() {
             return;
         }
 
-        // Verificar ubicación antes de registrar asistencia
+        // Verificar la ubicación antes de registrar asistencia
         checkLocation(async () => {
-            // Verificar si hay un registro de asistencia hoy
+            // Verificar si ya existe un registro de asistencia hoy
             const asistenciaRef = db.collection("asistencias").doc(`${uid}_${fechaHoy}`);
             const asistenciaDoc = await asistenciaRef.get();
 
@@ -209,11 +200,33 @@ async function registrarAsistencia() {
     }
 }
 
-// Evento para cerrar sesión
-document.addEventListener("DOMContentLoaded", function () {
+// Inicialización del escáner y eventos una vez que el DOM está completamente cargado
+document.addEventListener("DOMContentLoaded", function() {
+    // Verificar que el contenedor "reader" existe en el DOM
+    const readerElement = document.getElementById("reader");
+    if (!readerElement) {
+        console.error("El contenedor 'reader' no se encontró en el DOM.");
+        return;
+    }
+
+    // Inicializar el escáner, permitiendo la carga de imágenes (useFileInput: true)
+    window.html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        {
+            fps: 10,
+            qrbox: 250,
+            videoConstraints: { facingMode: "environment" },
+            useFileInput: true
+        },
+        false
+    );
+
+    html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+    // Configurar el botón de cierre de sesión
     const logoutButton = document.getElementById("logout-button");
     if (logoutButton) {
-        logoutButton.addEventListener("click", function () {
+        logoutButton.addEventListener("click", function() {
             logout();
         });
     } else {
