@@ -1,7 +1,7 @@
 // js/employee.js
 // Coordenadas de la ubicación permitida y radio en metros
 let allowedLat = null;      // Reemplaza con la latitud deseada
-let allowedLng = null;     // Reemplaza con la longitud deseada
+let allowedLng = null;      // Reemplaza con la longitud deseada
 const allowedRadius = 10;          // Radio permitido en metros
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
@@ -61,6 +61,7 @@ checkUserSession(function (uid) {
 // Bandera para evitar múltiples procesamientos
 let scanProcesado = false;
 
+// Actualización de onScanSuccess sin verificación de ubicación previa
 function onScanSuccess(decodedText, decodedResult) {
     if (scanProcesado) return;
 
@@ -71,24 +72,12 @@ function onScanSuccess(decodedText, decodedResult) {
 
     scanProcesado = true;
 
-    checkLocation(
-        function () {
-            html5QrcodeScanner.clear().then(() => {
-                registrarAsistencia();
-            }).catch((error) => {
-                console.error("Error al detener el escáner", error);
-                scanProcesado = false;
-            });
-        },
-        function (distance) {
-            if (distance !== undefined) {
-                alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
-            } else {
-                alert("No se pudo verificar la ubicación. Intenta nuevamente.");
-            }
-            scanProcesado = false;
-        }
-    );
+    html5QrcodeScanner.clear().then(() => {
+        registrarAsistencia();
+    }).catch((error) => {
+        console.error("Error al detener el escáner", error);
+        scanProcesado = false;
+    });
 }
 
 function onScanError(errorMessage) {
@@ -128,11 +117,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-
 // Función para registrar asistencia con verificación de ubicación
 async function registrarAsistencia() {
     const sessionData = getSessionData();
-    if (!sessionData) return;
+    if (!sessionData) {
+        scanProcesado = false;
+        return;
+    }
     const uid = sessionData.uid;
 
     const now = new Date();
@@ -144,18 +135,23 @@ async function registrarAsistencia() {
         const usuarioDoc = await db.collection("usuarios").doc(uid).get();
         if (!usuarioDoc.exists) {
             console.error("Usuario no encontrado.");
+            scanProcesado = false;
             return;
         }
 
         const userData = usuarioDoc.data();
         const empresa = userData.empresa;
 
-        // Obtener la ubicación de la empresa
+        // Obtener la ubicación de la empresa y actualizar allowedLat y allowedLng
         const empresaDoc = await db.collection("empresas").doc(empresa).get();
         if (empresaDoc.exists) {
             const empresaData = empresaDoc.data();
             allowedLat = empresaData.ubicacion.lat;
             allowedLng = empresaData.ubicacion.lng;
+        } else {
+            console.error("Empresa no encontrada.");
+            scanProcesado = false;
+            return;
         }
 
         // Verificar ubicación antes de registrar asistencia
@@ -173,6 +169,7 @@ async function registrarAsistencia() {
                     const justification = prompt("Llegaste tarde. Ingresa la razón:");
                     if (!justification) {
                         alert("Debes justificar tu llegada tarde.");
+                        scanProcesado = false;
                         return;
                     }
 
@@ -207,12 +204,20 @@ async function registrarAsistencia() {
 
                 alert(`Salida registrada a las ${now.toLocaleTimeString()}.`);
             }
+            // Reiniciar bandera para permitir nuevos escaneos
+            scanProcesado = false;
         }, (distance) => {
-            alert(`Estás fuera del área permitida. Distancia: ${Math.round(distance)} metros.`);
+            if (distance !== undefined) {
+                alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
+            } else {
+                alert("No se pudo verificar la ubicación. Intenta nuevamente.");
+            }
+            scanProcesado = false;
         });
 
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
+        scanProcesado = false;
     }
 }
 
