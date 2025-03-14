@@ -28,23 +28,10 @@ document.getElementById("login-form").addEventListener("submit", async function 
         const userData = userDoc.data();
 
         // Comparación de la contraseña encriptada utilizando la función personalizada
-        if (pass !== decrypt_data(userData.password)) {
+        if (encrypt_data(pass) !== userData.password) {
             alert("Contraseña incorrecta.");
             return;
         }
-
-        // Verificación de IP solo para empleados
-        /*if (userData.role === "empleado") {
-            const ipResponse = await fetch('https://api.ipify.org?format=json');
-            const ipData = await ipResponse.json();
-            const ip = ipData.ip;
-
-            // Verificar si la IP coincide
-            if (userData.ip !== ip) {
-                alert("La dirección IP no coincide. Acceso denegado.");
-                return;
-            }
-        }*/
 
         // Crea la sesión usando localStorage (almacenada de forma encriptada)
         createSession(userDoc.id, 1);
