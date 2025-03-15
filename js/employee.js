@@ -1,8 +1,7 @@
 // js/employee.js
-
 // Coordenadas de la ubicación permitida y radio en metros
-let allowedLat = null;      // Se actualizará con la latitud de la empresa
-let allowedLng = null;      // Se actualizará con la longitud de la empresa
+let allowedLat = null;      // Se actualizará al obtener la ubicación de la empresa
+let allowedLng = null;      // Se actualizará al obtener la ubicación de la empresa
 const allowedRadius = 10;   // Radio permitido en metros
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
@@ -37,6 +36,7 @@ function checkLocation(successCallback, errorCallback) {
             },
             error => {
                 console.error("Error al obtener la ubicación:", error);
+                alert("Error al obtener la ubicación. Verifica los permisos de tu navegador.");
                 errorCallback();
             }
         );
@@ -46,28 +46,28 @@ function checkLocation(successCallback, errorCallback) {
     }
 }
 
-// Se asume que existen funciones como checkUserSession, getSessionData y logout definidas en otros archivos
-// Ejemplo de verificación de sesión para rol "empleado"
+// Verifica que el usuario tenga una sesión válida y rol "empleado"
 checkUserSession(function (uid) {
     db.collection("usuarios").doc(uid).get().then(doc => {
         if (!doc.exists || doc.data().role !== "empleado") {
+            alert("No tienes permisos para acceder a este módulo.");
             window.location.href = "index.html";
             return;
         }
     }).catch(error => {
         console.error("Error al obtener datos del usuario:", error);
+        alert("Error al obtener datos del usuario. Se cerrará la sesión.");
         logout();
     });
 });
 
-// Bandera para evitar múltiples procesamientos simultáneos
+// Bandera para evitar múltiples procesamientos
 let scanProcesado = false;
 
-// Callback cuando se detecta un QR (ya sea desde la cámara o al cargar una imagen)
+// Función que se ejecuta cuando se detecta un código QR correctamente
 function onScanSuccess(decodedText, decodedResult) {
     if (scanProcesado) return;
 
-    // Verificar que el contenido del QR sea el esperado
     if (decodedText !== "J.M Asociados") {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
@@ -75,31 +75,59 @@ function onScanSuccess(decodedText, decodedResult) {
 
     scanProcesado = true;
 
-    // Intentar limpiar el escáner; se valida si clear() devuelve una promesa
-    let clearResult = html5QrcodeScanner.clear();
-    if (clearResult && typeof clearResult.then === "function") {
-        clearResult.then(() => {
-            registrarAsistencia();
-        }).catch((error) => {
-            console.error("Error al detener el escáner:", error);
-            scanProcesado = false;
-        });
-    } else {
-        // Si clear() no devuelve una promesa, se procede directamente
+    // Se limpia el escáner y se llama a registrarAsistencia
+    html5QrcodeScanner.clear().then(() => {
         registrarAsistencia();
+    }).catch((error) => {
+        console.error("Error al detener el escáner", error);
+        alert("Error al detener el escáner. Intenta nuevamente.");
+        scanProcesado = false;
+    });
+}
+
+function onScanError(errorMessage) {
+    if (errorMessage.includes("File input")) {
+        alert("Por favor, usa la cámara para escanear el código QR.");
+        html5QrcodeScanner.clear().then(() => {
+            html5QrcodeScanner.render(onScanSuccess, onScanError);
+        }).catch((error) => {
+            console.error("Error al reiniciar el escáner", error);
+            alert("Error al reiniciar el escáner.");
+        });
     }
 }
 
-// Callback para errores en el escaneo (tanto de cámara como de carga de imagen)
-function onScanError(errorMessage) {
-    console.error("Error de escaneo:", errorMessage);
-    // Aquí se puede agregar lógica adicional para manejar errores específicos
-}
+// Configura el escáner en el contenedor "reader"
+var html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    {
+        fps: 10,
+        qrbox: 250,
+        videoConstraints: { facingMode: "environment" },
+        useFileInput: false
+    },
+    false
+);
+
+html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+// Deshabilitar carga de archivos
+document.addEventListener('DOMContentLoaded', function () {
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+        fileInput.setAttribute('disabled', true);
+        fileInput.addEventListener('click', function () {
+            alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
+            window.location.href = "employee.html";
+        });
+    }
+});
 
 // Función para registrar asistencia con verificación de ubicación
 async function registrarAsistencia() {
     const sessionData = getSessionData();
     if (!sessionData) {
+        alert("No se encontró información de la sesión. Por favor, inicia sesión de nuevo.");
         scanProcesado = false;
         return;
     }
@@ -113,11 +141,10 @@ async function registrarAsistencia() {
         // Obtener datos del usuario
         const usuarioDoc = await db.collection("usuarios").doc(uid).get();
         if (!usuarioDoc.exists) {
-            console.error("Usuario no encontrado.");
+            alert("Error: Usuario no encontrado.");
             scanProcesado = false;
             return;
         }
-
         const userData = usuarioDoc.data();
         const empresa = userData.empresa;
 
@@ -128,14 +155,14 @@ async function registrarAsistencia() {
             allowedLat = empresaData.ubicacion.lat;
             allowedLng = empresaData.ubicacion.lng;
         } else {
-            console.error("Empresa no encontrada.");
+            alert("Error: Empresa no encontrada.");
             scanProcesado = false;
             return;
         }
 
-        // Verificar la ubicación antes de registrar asistencia
+        // Verificar ubicación antes de registrar asistencia
         checkLocation(async () => {
-            // Verificar si ya existe un registro de asistencia hoy
+            // Verificar si hay un registro de asistencia hoy
             const asistenciaRef = db.collection("asistencias").doc(`${uid}_${fechaHoy}`);
             const asistenciaDoc = await asistenciaRef.get();
 
@@ -144,14 +171,13 @@ async function registrarAsistencia() {
                 let status = hour >= 8 ? "Tarde" : "A tiempo";
 
                 if (status === "Tarde") {
-                    // Solicitar justificación para la llegada tarde
+                    // Solicitar justificación en caso de tardanza
                     const justification = prompt("Llegaste tarde. Ingresa la razón:");
                     if (!justification) {
                         alert("Debes justificar tu llegada tarde.");
                         scanProcesado = false;
                         return;
                     }
-
                     await asistenciaRef.set({
                         userId: uid,
                         user: userData.nombre,
@@ -173,14 +199,12 @@ async function registrarAsistencia() {
                         status: status
                     });
                 }
-
                 alert(`Entrada registrada a las ${now.toLocaleTimeString()} (${status}).`);
             } else {
                 // Segunda vez escaneando hoy -> Registrar salida
                 await asistenciaRef.update({
                     salida: now.toLocaleTimeString()
                 });
-
                 alert(`Salida registrada a las ${now.toLocaleTimeString()}.`);
             }
             // Reiniciar bandera para permitir nuevos escaneos
@@ -196,40 +220,20 @@ async function registrarAsistencia() {
 
     } catch (error) {
         console.error("Error al registrar asistencia:", error);
+        alert(`Error al registrar asistencia: ${error.message}`);
         scanProcesado = false;
     }
 }
 
-// Inicialización del escáner y eventos una vez que el DOM está completamente cargado
-document.addEventListener("DOMContentLoaded", function() {
-    // Verificar que el contenedor "reader" existe en el DOM
-    const readerElement = document.getElementById("reader");
-    if (!readerElement) {
-        console.error("El contenedor 'reader' no se encontró en el DOM.");
-        return;
-    }
-
-    // Inicializar el escáner, permitiendo la carga de imágenes (useFileInput: true)
-    window.html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader",
-        {
-            fps: 10,
-            qrbox: 250,
-            videoConstraints: { facingMode: "environment" },
-            useFileInput: true
-        },
-        false
-    );
-
-    html5QrcodeScanner.render(onScanSuccess, onScanError);
-
-    // Configurar el botón de cierre de sesión
+// Evento para cerrar sesión
+document.addEventListener("DOMContentLoaded", function () {
     const logoutButton = document.getElementById("logout-button");
     if (logoutButton) {
-        logoutButton.addEventListener("click", function() {
+        logoutButton.addEventListener("click", function () {
             logout();
         });
     } else {
         console.error("El botón de cerrar sesión no se encontró en el DOM.");
+        alert("Error: No se encontró el botón de cerrar sesión.");
     }
 });
