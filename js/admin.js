@@ -175,7 +175,7 @@ async function cargarAsistencias() {
   // Calcular rango de fechas de la semana actual (lunes a domingo)
   const hoy = new Date();
   const diaSemana = hoy.getDay();
-  const diffLunes = (diaSemana === 0) ? -6 : (1 - diaSemana);
+  const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
   const lunes = new Date(hoy);
   lunes.setDate(hoy.getDate() + diffLunes);
   lunes.setHours(0, 0, 0, 0);
@@ -183,16 +183,21 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Consulta filtrada por empresa, sucursal y fecha
-  db.collection("asistencias")
-    .where("empresa", "==", adminEmpresa)
-    .where("sucursal", "==", adminSucursal)
-    .where("fecha", ">=", formatDate(lunes))
-    .where("fecha", "<=", formatDate(domingo))
-    .onSnapshot(snapshot => {
-      const planilla = {};
-      snapshot.forEach(doc => {
-        const data = doc.data();
+  try {
+    // Obtener todas las asistencias de la empresa y sucursal
+    const snapshot = await db.collection("asistencias")
+      .where("empresa", "==", adminEmpresa)
+      .where("sucursal", "==", adminSucursal)
+      .get();
+
+    const planilla = {};
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const fechaAsistencia = new Date(data.fecha);
+
+      // Filtrar localmente por fecha dentro del rango de la semana actual
+      if (fechaAsistencia >= lunes && fechaAsistencia <= domingo) {
         const empleadoId = data.user;
         if (!planilla[empleadoId]) {
           planilla[empleadoId] = {};
@@ -202,69 +207,72 @@ async function cargarAsistencias() {
           planilla[empleadoId][fecha] = [];
         }
         planilla[empleadoId][fecha].push(data);
-      });
-
-      // Obtener información de empleados
-      db.collection("usuarios").get().then(empSnapshot => {
-        const empleados = [];
-        empSnapshot.forEach(doc => {
-          empleados.push({ id: doc.id, ...doc.data() });
-        });
-
-        const tbody = document.querySelector("#planillaTable tbody");
-        tbody.innerHTML = '';
-        for (const empleadoId in planilla) {
-          let totalNormal = 0;
-          let totalExtra = 0;
-          for (const fecha in planilla[empleadoId]) {
-            const registros = planilla[empleadoId][fecha];
-            const entradas = registros.filter(r => r.tipo === "entrada");
-            const salidas = registros.filter(r => r.tipo === "salida");
-            if (entradas.length === 0 || salidas.length === 0) continue;
-            entradas.sort((a, b) => a.time.localeCompare(b.time));
-            salidas.sort((a, b) => a.time.localeCompare(b.time));
-            const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
-            const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
-            const corte = new Date(horaEntrada);
-            corte.setHours(16, 0, 0, 0);
-
-            let horasNormales = 0;
-            let horasExtras = 0;
-            if (horaSalida <= corte) {
-              horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-            } else if (horaEntrada < corte) {
-              horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
-              horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
-            } else {
-              horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-            }
-            totalNormal += horasNormales;
-            totalExtra += horasExtras;
-          }
-          totalNormal = Math.round(totalNormal * 100) / 100;
-          totalExtra = Math.round(totalExtra * 100) / 100;
-          const totalHoras = totalNormal + totalExtra;
-
-          // Buscar el empleado correspondiente en la lista
-          const empleado = empleados.find(emp => emp.id === empleadoId || emp.nombre === empleadoId) || {};
-          const salarioH = empleado.salarioH || 0;
-          const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
-
-          if (totalHoras > 0) {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-                <td>${empleado.nombre || 'Desconocido'}</td>
-                <td>${empleado.identificacion || 'N/A'}</td>
-                <td>${totalNormal}</td>
-                <td>${totalExtra}</td>
-                <td>${totalHoras}</td>
-                <td>$ ${totalPagar}</td>
-              `;
-            tbody.appendChild(tr);
-          }
-        }
-      });
+      }
     });
+
+    // Obtener información de empleados
+    const empSnapshot = await db.collection("usuarios").get();
+    const empleados = [];
+    empSnapshot.forEach(doc => {
+      empleados.push({ id: doc.id, ...doc.data() });
+    });
+
+    const tbody = document.querySelector("#planillaTable tbody");
+    tbody.innerHTML = '';
+
+    for (const empleadoId in planilla) {
+      let totalNormal = 0;
+      let totalExtra = 0;
+      for (const fecha in planilla[empleadoId]) {
+        const registros = planilla[empleadoId][fecha];
+        const entradas = registros.filter(r => r.tipo === "entrada");
+        const salidas = registros.filter(r => r.tipo === "salida");
+        if (entradas.length === 0 || salidas.length === 0) continue;
+        entradas.sort((a, b) => a.time.localeCompare(b.time));
+        salidas.sort((a, b) => a.time.localeCompare(b.time));
+        const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
+        const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
+        const corte = new Date(horaEntrada);
+        corte.setHours(16, 0, 0, 0);
+
+        let horasNormales = 0;
+        let horasExtras = 0;
+        if (horaSalida <= corte) {
+          horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+        } else if (horaEntrada < corte) {
+          horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
+          horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
+        } else {
+          horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+        }
+        totalNormal += horasNormales;
+        totalExtra += horasExtras;
+      }
+      totalNormal = Math.round(totalNormal * 100) / 100;
+      totalExtra = Math.round(totalExtra * 100) / 100;
+      const totalHoras = totalNormal + totalExtra;
+
+      // Buscar el empleado correspondiente en la lista
+      const empleado = empleados.find(emp => emp.id === empleadoId || emp.nombre === empleadoId) || {};
+      const salarioH = empleado.salarioH || 0;
+      const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
+
+      if (totalHoras > 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${empleado.nombre || 'Desconocido'}</td>
+            <td>${empleado.identificacion || 'N/A'}</td>
+            <td>${totalNormal}</td>
+            <td>${totalExtra}</td>
+            <td>${totalHoras}</td>
+            <td>$ ${totalPagar}</td>
+          `;
+        tbody.appendChild(tr);
+      }
+    }
+  } catch (error) {
+    console.error("Error al cargar asistencias:", error);
+  }
 }
 
 // ===================
