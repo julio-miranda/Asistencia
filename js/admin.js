@@ -81,14 +81,14 @@ function handleUnauthorizedRole(role) {
  */
 function mostrarTabla(tabla) {
   document.getElementById("navbar-links").classList.remove("active");
-  document.getElementById("perfil-container").style.display = 'none';
-  document.getElementById("empleado-container").style.display = 'none';
-  document.getElementById("planilla-container").style.display = 'none';
+  document.getElementById("perfil-container").style.display = "none";
+  document.getElementById("empleado-container").style.display = "none";
+  document.getElementById("planilla-container").style.display = "none";
   document.getElementById("tabla-empleados").style.display = (tabla === "empleados") ? "block" : "none";
   document.getElementById("tabla-asistencias").style.display = (tabla === "asistencias") ? "block" : "none";
   if (tabla === "asistencias") {
     setTimeout(function () {
-      $('#asistenciasTable').DataTable().columns.adjust().draw();
+      $("#asistenciasTable").DataTable().columns.adjust().draw();
     }, 100);
   }
 }
@@ -143,6 +143,7 @@ async function cargarEmpleados() {
 }
 
 // Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas (semana actual)
+// Se ha modificado para trabajar con un único documento por día que contiene ambos campos: entrada y salida.
 async function cargarAsistencias() {
   const asistenciasTable = $("#asistenciasTable").DataTable({
     scrollX: true,
@@ -179,21 +180,21 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener todos los empleados (fuera de la consulta de asistencias)
+  // Se obtiene también la lista de empleados para relacionar los datos de asistencias
   const empleados = await db.collection("usuarios").get().then(empSnapshot => {
     return empSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   });
 
-  // Obtener todas las asistencias para el rango de fechas (sin filtrar por fecha aún)
+  // Usamos onSnapshot para reaccionar en tiempo real a los cambios
   db.collection("asistencias").onSnapshot((snapshot) => {
-    // Registra la cantidad de documentos y sus datos
+    // Verificar en consola los documentos recibidos
     console.log("Cantidad de asistencias recibidas:", snapshot.docs.length);
     snapshot.docs.forEach(doc => {
       console.log("Asistencia:", doc.data());
     });
-  
+
+    // Agrupar los registros por empleado (la agrupación es sencilla ya que cada documento contiene entrada y salida)
     const planilla = {};
-  
     snapshot.forEach((doc) => {
       const data = doc.data();
       
@@ -204,81 +205,50 @@ async function cargarAsistencias() {
         new Date(data.fecha) >= lunes &&
         new Date(data.fecha) <= domingo
       ) {
-        const empleadoId = data.user;
+        const empleadoId = data.user; // En este caso 'user' contiene el nombre (puedes cambiar la lógica si usas un ID)
         if (!planilla[empleadoId]) {
-          planilla[empleadoId] = {};
+          planilla[empleadoId] = [];
         }
-        const fecha = data.fecha;
-        if (!planilla[empleadoId][fecha]) {
-          planilla[empleadoId][fecha] = [];
-        }
-        planilla[empleadoId][fecha].push(data);
+        planilla[empleadoId].push(data);
       }
     });
 
-    // Crear la tabla de asistencias
+    // Crear la tabla de asistencias usando la estructura modificada
     const tbody = document.querySelector("#asistenciasTable tbody");
     tbody.innerHTML = "";
 
-    // Iterar sobre cada empleado y procesar las asistencias
     for (const empleadoId in planilla) {
-      let totalNormal = 0;
-      let totalExtra = 0;
+      let totalHoras = 0;
 
-      for (const fecha in planilla[empleadoId]) {
-        const registros = planilla[empleadoId][fecha];
-        const entradas = registros.filter((r) => r.tipo === "entrada");
-        const salidas = registros.filter((r) => r.tipo === "salida");
+      planilla[empleadoId].forEach(registro => {
+        // Convertir las cadenas de entrada y salida a objetos Date usando la función auxiliar
+        const horaEntrada = crearFechaCompleta(registro.fecha, registro.entrada);
+        const horaSalida = crearFechaCompleta(registro.fecha, registro.salida);
+        const horasTrabajadas = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+        totalHoras += horasTrabajadas;
+      });
 
-        if (entradas.length === 0 || salidas.length === 0) continue;
-
-        entradas.sort((a, b) => a.time.localeCompare(b.time));
-        salidas.sort((a, b) => a.time.localeCompare(b.time));
-
-        const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
-        const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
-        const corte = new Date(horaEntrada);
-        corte.setHours(16, 0, 0, 0);
-
-        let horasNormales = 0;
-        let horasExtras = 0;
-
-        // Calcular horas normales y extras
-        if (horaSalida <= corte) {
-          horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-        } else if (horaEntrada < corte) {
-          horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
-          horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
-        } else {
-          horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-        }
-
-        totalNormal += horasNormales;
-        totalExtra += horasExtras;
-      }
-
-      totalNormal = Math.round(totalNormal * 100) / 100;
-      totalExtra = Math.round(totalExtra * 100) / 100;
-      const totalHoras = totalNormal + totalExtra;
-
-      // Buscar el empleado en la lista de empleados
-      const empleado = empleados.find(emp => emp.id === empleadoId);
-      const salarioH = empleado ? empleado.salarioH : 0;
+      totalHoras = Math.round(totalHoras * 100) / 100;
+      
+      // Buscar información del empleado en la lista (aquí se asume que 'empleadoId' coincide con algún dato único; de lo contrario, adapta la búsqueda)
+      const empleado = empleados.find(emp => emp.id === empleadoId) || {};
+      const salarioH = empleado.salarioH || 0;
       const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
 
       if (totalHoras > 0) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${empleado ? empleado.nombre : "Desconocido"}</td>
-          <td>${empleado ? empleado.identificacion : "N/A"}</td>
-          <td>${totalNormal}</td>
-          <td>${totalExtra}</td>
+          <td>${empleado.nombre || empleadoId || "Desconocido"}</td>
+          <td>${empleado.identificacion || "N/A"}</td>
           <td>${totalHoras}</td>
           <td>$ ${totalPagar}</td>
         `;
         tbody.appendChild(tr);
       }
     }
+
+    // Opcional: actualizar DataTable
+    asistenciasTable.draw();
   });
 }
 
@@ -326,16 +296,16 @@ function verPerfil() {
     userRef.get().then(doc => {
       if (doc.exists) {
         const data = doc.data();
-        document.getElementById("nombre").value = data.nombre || '';
-        document.getElementById("email").value = data.email || '';
-        document.getElementById("identificacion").value = data.identificacion || '';
-        document.getElementById("nacimiento").value = data.nacimiento || '';
-        document.getElementById("empleado-salario").value = data.salarioH || '';
-        document.getElementById("descripcionp").value = data.descripcion || '';
-        document.getElementById("perfil-container").style.display = 'block';
-        document.getElementById("tabla-empleados").style.display = 'none';
-        document.getElementById("tabla-asistencias").style.display = 'none';
-        document.getElementById("planilla-container").style.display = 'none';
+        document.getElementById("nombre").value = data.nombre || "";
+        document.getElementById("email").value = data.email || "";
+        document.getElementById("identificacion").value = data.identificacion || "";
+        document.getElementById("nacimiento").value = data.nacimiento || "";
+        document.getElementById("empleado-salario").value = data.salarioH || "";
+        document.getElementById("descripcionp").value = data.descripcion || "";
+        document.getElementById("perfil-container").style.display = "block";
+        document.getElementById("tabla-empleados").style.display = "none";
+        document.getElementById("tabla-asistencias").style.display = "none";
+        document.getElementById("planilla-container").style.display = "none";
       }
     });
   }
@@ -387,12 +357,12 @@ document.getElementById("perfil-form").addEventListener("submit", async (e) => {
 
 // Mostrar el formulario para agregar un nuevo empleado
 function agregarEmpleado() {
-  // Al agregar, nos aseguramos de limpiar la variable de edición
+  // Al agregar, se limpia la variable de edición
   currentEditingEmployeeId = null;
-  document.getElementById("empleado-container").style.display = 'block';
-  document.getElementById("tabla-empleados").style.display = 'none';
-  document.getElementById("tabla-asistencias").style.display = 'none';
-  document.getElementById("planilla-container").style.display = 'none';
+  document.getElementById("empleado-container").style.display = "block";
+  document.getElementById("tabla-empleados").style.display = "none";
+  document.getElementById("tabla-asistencias").style.display = "none";
+  document.getElementById("planilla-container").style.display = "none";
   document.getElementById("titulo-form-empleado").textContent = "Agregar Empleado";
   document.getElementById("empleado-form").reset();
 }
@@ -410,12 +380,12 @@ async function editarEmpleado(id) {
     document.getElementById("empleado-salario").value = data.salarioH;
     document.getElementById("empleado-nacimiento").value = data.nacimiento;
     document.getElementById("descripcion").value = data.descripcion;
-    document.getElementById("empleado-container").style.display = 'block';
-    document.getElementById("tabla-empleados").style.display = 'none';
-    document.getElementById("tabla-asistencias").style.display = 'none';
-    document.getElementById("planilla-container").style.display = 'none';
+    document.getElementById("empleado-container").style.display = "block";
+    document.getElementById("tabla-empleados").style.display = "none";
+    document.getElementById("tabla-asistencias").style.display = "none";
+    document.getElementById("planilla-container").style.display = "none";
     document.getElementById("titulo-form-empleado").textContent = "Editar Empleado";
-    // En modo edición, se puede optar por no obligar a cambiar la contraseña.
+    // En modo edición se limpian los campos de contraseña
     document.getElementById("register-password").value = "";
     document.getElementById("register-password2").value = "";
   }
@@ -431,7 +401,6 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   const nacimiento = document.getElementById("empleado-nacimiento").value;
   const descripcion = document.getElementById("descripcion").value;
   
-  // Para el manejo de contraseña, se actúa distinto según se esté agregando o editando.
   let updateData = {
     nombre: nombre,
     email: email,
@@ -444,7 +413,6 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   try {
     if (currentEditingEmployeeId) {
       // MODO EDICIÓN
-      // Si se han ingresado datos en los campos de contraseña, se actualiza el password.
       const pass = document.getElementById("register-password").value;
       const pass2 = document.getElementById("register-password2").value;
       if (pass || pass2) {
@@ -457,7 +425,7 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
       await db.collection("usuarios").doc(currentEditingEmployeeId).update(updateData);
       alert("Empleado actualizado correctamente");
     } else {
-      // MODO AGREGAR: Se requiere obligatoriamente contraseña.
+      // MODO AGREGAR: se requiere obligatoriamente contraseña.
       const pass = document.getElementById("register-password").value;
       const pass2 = document.getElementById("register-password2").value;
       if (pass !== pass2) {
@@ -465,7 +433,6 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
         return;
       }
       updateData.password = encrypt_data(pass);
-      // Agregar campos adicionales
       updateData.role = "empleado";
       updateData.empresa = adminEmpresa;
       updateData.sucursal = adminSucursal;
@@ -491,17 +458,17 @@ function cancelarFormulario() {
 // Mostrar la planilla semanal y calcular en tiempo real
 function mostrarPlanilla() {
   document.getElementById("navbar-links").classList.remove("active");
-  document.getElementById("perfil-container").style.display = 'none';
-  document.getElementById("empleado-container").style.display = 'none';
-  document.getElementById("tabla-empleados").style.display = 'none';
-  document.getElementById("tabla-asistencias").style.display = 'none';
-  document.getElementById("planilla-container").style.display = 'block';
+  document.getElementById("perfil-container").style.display = "none";
+  document.getElementById("empleado-container").style.display = "none";
+  document.getElementById("tabla-empleados").style.display = "none";
+  document.getElementById("tabla-asistencias").style.display = "none";
+  document.getElementById("planilla-container").style.display = "block";
   calcularPlanillaSemanal();
 }
 
 function calcularPlanillaSemanal() {
   const tbody = document.querySelector("#planillaTable tbody");
-  tbody.innerHTML = '';
+  tbody.innerHTML = "";
 
   // Determinar el inicio (lunes) y fin (domingo) de la semana actual
   const hoy = new Date();
@@ -518,7 +485,7 @@ function calcularPlanillaSemanal() {
   const fechaInicio = formatDate(lunes);
   const fechaFin = formatDate(domingo);
 
-  // Obtener todas las asistencias de la empresa y sucursal (sin filtrar por fecha aún)
+  // Obtener todas las asistencias filtradas por empresa y sucursal
   db.collection("asistencias")
     .where("empresa", "==", adminEmpresa)
     .where("sucursal", "==", adminSucursal)
@@ -527,17 +494,13 @@ function calcularPlanillaSemanal() {
       snapshot.forEach(doc => {
         const data = doc.data();
         const fecha = data.fecha;
-
         // Filtrar en el cliente por la semana actual
         if (fecha >= fechaInicio && fecha <= fechaFin) {
           const empleadoId = data.user;
           if (!planilla[empleadoId]) {
-            planilla[empleadoId] = {};
+            planilla[empleadoId] = [];
           }
-          if (!planilla[empleadoId][fecha]) {
-            planilla[empleadoId][fecha] = [];
-          }
-          planilla[empleadoId][fecha].push(data);
+          planilla[empleadoId].push(data);
         }
       });
 
@@ -548,51 +511,26 @@ function calcularPlanillaSemanal() {
           empleados.push({ id: doc.id, ...doc.data() });
         });
 
-        tbody.innerHTML = '';
+        tbody.innerHTML = "";
         for (const empleadoId in planilla) {
-          let totalNormal = 0;
-          let totalExtra = 0;
-          for (const fecha in planilla[empleadoId]) {
-            const registros = planilla[empleadoId][fecha];
-            const entradas = registros.filter(r => r.tipo === "entrada");
-            const salidas = registros.filter(r => r.tipo === "salida");
-            if (entradas.length === 0 || salidas.length === 0) continue;
-            entradas.sort((a, b) => a.time.localeCompare(b.time));
-            salidas.sort((a, b) => a.time.localeCompare(b.time));
-            const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
-            const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
-            const corte = new Date(horaEntrada);
-            corte.setHours(16, 0, 0, 0);
-
-            let horasNormales = 0;
-            let horasExtras = 0;
-            if (horaSalida <= corte) {
-              horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-            } else if (horaEntrada < corte) {
-              horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
-              horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
-            } else {
-              horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-            }
-            totalNormal += horasNormales;
-            totalExtra += horasExtras;
-          }
-          totalNormal = Math.round(totalNormal * 100) / 100;
-          totalExtra = Math.round(totalExtra * 100) / 100;
-          const totalHoras = totalNormal + totalExtra;
-
-          // Buscar el empleado correspondiente en la lista
-          const empleado = empleados.find(emp => emp.id === empleadoId || emp.nombre === empleadoId) || {};
+          let totalHoras = 0;
+          planilla[empleadoId].forEach(registro => {
+            const horaEntrada = crearFechaCompleta(registro.fecha, registro.entrada);
+            const horaSalida = crearFechaCompleta(registro.fecha, registro.salida);
+            const horasTrabajadas = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+            totalHoras += horasTrabajadas;
+          });
+          totalHoras = Math.round(totalHoras * 100) / 100;
+          
+          const empleado = empleados.find(emp => emp.id === empleadoId) || {};
           const salarioH = empleado.salarioH || 0;
           const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
-
+          
           if (totalHoras > 0) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-              <td>${empleado.nombre || 'Desconocido'}</td>
-              <td>${empleado.identificacion || 'N/A'}</td>
-              <td>${totalNormal}</td>
-              <td>${totalExtra}</td>
+              <td>${empleado.nombre || empleadoId || "Desconocido"}</td>
+              <td>${empleado.identificacion || "N/A"}</td>
               <td>${totalHoras}</td>
               <td>$ ${totalPagar}</td>
             `;
@@ -606,33 +544,48 @@ function calcularPlanillaSemanal() {
 // Función para imprimir la planilla
 function imprimirPlanilla() {
   const contenido = document.getElementById("planilla-container").innerHTML;
-  const ventanaImpresion = window.open('', '', 'height=600,width=800');
+  const ventanaImpresion = window.open("", "", "height=600,width=800");
   ventanaImpresion.document.write('<html><head><title>Planilla Semanal</title>');
   ventanaImpresion.document.write('<link rel="stylesheet" href="css/admin.css" />');
   ventanaImpresion.document.write('<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">');
   ventanaImpresion.document.write('<style>body{font-family: "Poppins", sans-serif; padding: 20px;} table {width: 100%; border-collapse: collapse;} th, td {border: 1px solid #ddd; padding: 8px; text-align: center;} th {background-color: #007bff; color: white;}</style>');
   ventanaImpresion.document.write('</head><body>');
   ventanaImpresion.document.write(contenido);
-  ventanaImpresion.document.write('</body></html>');
+  ventanaImpresion.document.write("</body></html>");
   ventanaImpresion.document.close();
   ventanaImpresion.focus();
   ventanaImpresion.print();
   ventanaImpresion.close();
 }
 
-// Función auxiliar para combinar una fecha y una hora (se asume formato "HH:MM")
+// Función auxiliar para combinar una fecha y una hora (se asume formato "HH:MM" o "HH:MM:SS [a.m./p.m.]")
 function crearFechaCompleta(fechaStr, timeStr) {
-  const partes = timeStr.split(":");
+  // Se asume que la fecha viene en "YYYY-MM-DD" y la hora en un formato legible (por ejemplo, "10:05:24 p.m.")
+  // Para convertir la hora a formato 24 horas, se puede utilizar una lógica adicional si es necesario.
+  // Aquí se crea la fecha base y luego se asignan las horas.
   const fechaObj = new Date(fechaStr + "T00:00:00");
-  fechaObj.setHours(parseInt(partes[0]), parseInt(partes[1]) || 0, 0, 0);
+  // Extraer las partes de la hora
+  let [hora, min, segAMPM] = timeStr.split(":");
+  segAMPM = segAMPM.trim();
+  // Verificar si se incluye "a.m." o "p.m."
+  let horaNum = parseInt(hora);
+  if (segAMPM.toLowerCase().includes("p.m.")) {
+    if (horaNum < 12) horaNum += 12;
+  } else if (segAMPM.toLowerCase().includes("a.m.")) {
+    if (horaNum === 12) horaNum = 0;
+  }
+  // Extraer los minutos (eliminando cualquier texto no numérico)
+  const minutos = parseInt(min);
+  // Se puede omitir los segundos si no se requiere precisión
+  fechaObj.setHours(horaNum, minutos, 0, 0);
   return fechaObj;
 }
 
 // Función auxiliar para formatear una fecha a "YYYY-MM-DD"
 function formatDate(dateObj) {
   const year = dateObj.getFullYear();
-  const mes = ('0' + (dateObj.getMonth() + 1)).slice(-2);
-  const dia = ('0' + dateObj.getDate()).slice(-2);
+  const mes = ("0" + (dateObj.getMonth() + 1)).slice(-2);
+  const dia = ("0" + dateObj.getDate()).slice(-2);
   return `${year}-${mes}-${dia}`;
 }
 
