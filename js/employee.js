@@ -34,6 +34,7 @@ function checkLocation(successCallback, errorCallback) {
     if (allowedLat === null || allowedLng === null) {
         alert("La ubicación permitida no está definida.");
         errorCallback();
+        window.location.href = "employee.html";
         return;
     }
     
@@ -176,7 +177,7 @@ async function registrarAsistencia() {
             if (navigator.geolocation) {
                 try {
                     const position = await getCurrentPositionPromise();
-                    await empresaRef.set({
+                    await db.collection("empresas").add({
                         empresa: empresa,
                         sucursal: sucursal,
                         lat: position.coords.latitude,
