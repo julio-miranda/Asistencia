@@ -5,17 +5,7 @@
 // ===================
 // Verificación de Sesión Automática
 // ===================
-// ===================
-// admin.js
-// ===================
 
-// Variables globales para almacenar la empresa y sucursal del admin
-let adminEmpresa = "";
-let adminSucursal = "";
-
-// ===================
-// Verificación de Sesión Automática
-// ===================
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     // Obtener datos de sesión y validar su existencia
@@ -37,12 +27,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const userData = userDocSnapshot.data();
+
     if (!userData.role) {
       console.warn("El usuario no tiene rol asignado.");
       return redirectToLogin();
     }
 
-    // Verificar que el usuario tenga rol "admin"
+    // Verifica que el usuario tenga rol "admin"
     if (userData.role !== "admin") {
       return handleUnauthorizedRole(userData.role);
     }
@@ -72,6 +63,7 @@ function redirectToLogin() {
  * @param {string} role - Rol del usuario.
  */
 function handleUnauthorizedRole(role) {
+  // Si el rol es "empleado", redirige a employee.html; de lo contrario, vuelve al login.
   window.location.href = role === "empleado" ? "employee.html" : "index.html";
 }
 
@@ -79,10 +71,7 @@ function handleUnauthorizedRole(role) {
 // Funciones para manejo de DataTables y contenido
 // ===================
 
-/**
- * Muestra u oculta las secciones según el parámetro recibido.
- * @param {string} tabla - "empleados" o "asistencias"
- */
+// Función para mostrar/ocultar secciones
 function mostrarTabla(tabla) {
   document.getElementById("navbar-links").classList.remove("active");
   document.getElementById("perfil-container").style.display = 'none';
@@ -97,8 +86,9 @@ function mostrarTabla(tabla) {
   }
 }
 
-// Cargar la tabla de empleados filtrando por empresa, sucursal y rol "empleado"
+// Cargar la tabla de empleados
 async function cargarEmpleados() {
+  // Inicializar o destruir DataTable si ya existe
   const empleadosTable = $("#empleadosTable").DataTable({
     scrollX: true,
     destroy: true,
@@ -121,6 +111,7 @@ async function cargarEmpleados() {
     }
   });
 
+  // Limpiar la tabla antes de cargar nuevos datos
   empleadosTable.clear().draw();
 
   // Consulta filtrada por empresa, sucursal y rol "empleado"
@@ -143,10 +134,11 @@ async function cargarEmpleados() {
     ]);
   });
 
+  // Dibujar la tabla con los nuevos datos
   empleadosTable.draw();
 }
 
-// Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas (semana actual)
+// Cargar la tabla de asistencias
 async function cargarAsistencias() {
   const asistenciasTable = $("#asistenciasTable").DataTable({
     scrollX: true,
@@ -191,7 +183,7 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Consulta filtrada por empresa, sucursal y rango de fechas
+  // Consulta filtrada por empresa, sucursal y fecha
   db.collection("asistencias")
     .where("empresa", "==", adminEmpresa)
     .where("sucursal", "==", adminSucursal)
@@ -212,7 +204,7 @@ async function cargarAsistencias() {
         planilla[empleadoId][fecha].push(data);
       });
 
-      // Obtener información de empleados para la planilla
+      // Obtener información de empleados
       db.collection("usuarios").get().then(empSnapshot => {
         const empleados = [];
         empSnapshot.forEach(doc => {
@@ -261,13 +253,13 @@ async function cargarAsistencias() {
           if (totalHoras > 0) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-              <td>${empleado.nombre || 'Desconocido'}</td>
-              <td>${empleado.identificacion || 'N/A'}</td>
-              <td>${totalNormal}</td>
-              <td>${totalExtra}</td>
-              <td>${totalHoras}</td>
-              <td>$ ${totalPagar}</td>
-            `;
+                <td>${empleado.nombre || 'Desconocido'}</td>
+                <td>${empleado.identificacion || 'N/A'}</td>
+                <td>${totalNormal}</td>
+                <td>${totalExtra}</td>
+                <td>${totalHoras}</td>
+                <td>$ ${totalPagar}</td>
+              `;
             tbody.appendChild(tr);
           }
         }
@@ -279,7 +271,7 @@ async function cargarAsistencias() {
 // Funciones CRUD de Empleados y Asistencias
 // ===================
 
-// Eliminar un empleado (se elimina el documento en Firestore)
+// Eliminar un empleado (solo se elimina el documento en Firestore)
 async function eliminarEmpleado(id) {
   if (!confirm("¿Estás seguro de eliminar este empleado?")) return;
   try {
@@ -309,7 +301,7 @@ async function eliminarAsistencia(id) {
 // Funciones de Perfil y Actualización
 // ===================
 
-// Mostrar el perfil del usuario actual
+// Mostrar el perfil del usuario actual (según uid en la cookie de sesión)
 function verPerfil() {
   document.getElementById("navbar-links").classList.remove("active");
   const sessionData = getSessionData();
@@ -364,6 +356,7 @@ document.getElementById("perfil-form").addEventListener("submit", async (e) => {
       salarioH: salarioH
     };
     if (cambiarContrasena && nuevaContrasena) {
+      // Encriptar la nueva contraseña usando encrypt_data
       updateData.password = encrypt_data(nuevaContrasena);
     }
     await db.collection("usuarios").doc(uid).update(updateData);
@@ -424,8 +417,9 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
     return;
   }
   try {
+    // Encriptar la contraseña del nuevo empleado usando encrypt_data
     const hashedPassword = encrypt_data(pass);
-    // Crear el nuevo empleado en Firestore e incluir empresa y sucursal del admin
+    // Crear el nuevo empleado en Firestore e incluir empresa y sucursal
     const newUserRef = await db.collection("usuarios").add({
       nombre: nombre,
       identificacion: identificacion,
@@ -438,6 +432,7 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
       empresa: adminEmpresa,
       sucursal: adminSucursal
     });
+    // Actualizar el documento con su propio ID como UID, si se requiere
     await db.collection("usuarios").doc(newUserRef.id).update({ UID: newUserRef.id });
     alert("Empleado agregado correctamente");
     window.location.href = "admin.html";
@@ -463,7 +458,7 @@ function mostrarPlanilla() {
   document.getElementById("tabla-empleados").style.display = 'none';
   document.getElementById("tabla-asistencias").style.display = 'none';
   document.getElementById("planilla-container").style.display = 'block';
-  calcularPlanillaSemanal();
+  calcularPlanillaSemanal(); // Configurar listener en tiempo real
 }
 
 function calcularPlanillaSemanal() {
@@ -481,10 +476,8 @@ function calcularPlanillaSemanal() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener las asistencias de la semana filtrando por empresa y sucursal
+  // Obtener las asistencias de la semana
   db.collection("asistencias")
-    .where("empresa", "==", adminEmpresa)
-    .where("sucursal", "==", adminSucursal)
     .where("fecha", ">=", formatDate(lunes))
     .where("fecha", "<=", formatDate(domingo))
     .onSnapshot(snapshot => {
@@ -550,13 +543,13 @@ function calcularPlanillaSemanal() {
           if (totalHoras > 0) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-              <td>${empleado.nombre || 'Desconocido'}</td>
-              <td>${empleado.identificacion || 'N/A'}</td>
-              <td>${totalNormal}</td>
-              <td>${totalExtra}</td>
-              <td>${totalHoras}</td>
-              <td>$ ${totalPagar}</td>
-            `;
+                <td>${empleado.nombre || 'Desconocido'}</td>
+                <td>${empleado.identificacion || 'N/A'}</td>
+                <td>${totalNormal}</td>
+                <td>${totalExtra}</td>
+                <td>${totalHoras}</td>
+                <td>$ ${totalPagar}</td>
+              `;
             tbody.appendChild(tr);
           }
         }
@@ -601,12 +594,14 @@ function formatDate(dateObj) {
 // Menú y Navegación
 // ===================
 let currentVisibleSectionId = null;
+
 document.addEventListener("DOMContentLoaded", () => {
   const menuToggle = document.getElementById("menu-toggle");
   const navbarLinks = document.getElementById("navbar-links");
 
   menuToggle.addEventListener("click", function () {
     const isActive = navbarLinks.classList.contains("active");
+
     if (!isActive) {
       const sections = document.querySelectorAll(".form-container, .tabla-container, .planilla-container");
       sections.forEach(section => {
@@ -629,6 +624,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ====================
 // Evento para cerrar sesión
 // ====================
+
 document.addEventListener("DOMContentLoaded", function () {
   const logoutButton = document.getElementById("logout-button");
   if (logoutButton) {
