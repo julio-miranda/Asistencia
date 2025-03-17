@@ -140,6 +140,7 @@ async function cargarEmpleados() {
 }
 
 // Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas (semana actual)
+// Función para cargar la tabla de asistencias filtrada por fecha y sucursal
 async function cargarAsistencias() {
   const asistenciasTable = $("#asistenciasTable").DataTable({
     scrollX: true,
@@ -165,7 +166,7 @@ async function cargarAsistencias() {
 
   asistenciasTable.clear().draw();
 
-  // Calcular rango de fechas de la semana actual
+  // Calcular el rango de fechas de la semana actual
   const hoy = new Date();
   const diaSemana = hoy.getDay();
   const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
@@ -176,14 +177,19 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener todas las asistencias (sin filtro en la consulta)
+  // Obtener todos los empleados (fuera de la consulta de asistencias)
+  const empleados = await db.collection("usuarios").get().then(empSnapshot => {
+    return empSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  });
+
+  // Obtener todas las asistencias para el rango de fechas (sin filtrar por fecha aún)
   db.collection("asistencias").onSnapshot((snapshot) => {
     const planilla = {};
 
     snapshot.forEach((doc) => {
       const data = doc.data();
       
-      // Filtrar en el cliente
+      // Filtrar por empresa, sucursal y semana actual
       if (
         data.empresa === adminEmpresa &&
         data.sucursal === adminSucursal &&
@@ -202,73 +208,69 @@ async function cargarAsistencias() {
       }
     });
 
-    // Obtener información de empleados
-    db.collection("usuarios").get().then((empSnapshot) => {
-      const empleados = [];
-      empSnapshot.forEach((doc) => {
-        empleados.push({ id: doc.id, ...doc.data() });
-      });
+    // Crear la tabla de asistencias
+    const tbody = document.querySelector("#asistenciasTable tbody");
+    tbody.innerHTML = "";
 
-      const tbody = document.querySelector("#asistenciasTable tbody");
-      tbody.innerHTML = "";
+    // Iterar sobre cada empleado y procesar las asistencias
+    for (const empleadoId in planilla) {
+      let totalNormal = 0;
+      let totalExtra = 0;
 
-      for (const empleadoId in planilla) {
-        let totalNormal = 0;
-        let totalExtra = 0;
+      for (const fecha in planilla[empleadoId]) {
+        const registros = planilla[empleadoId][fecha];
+        const entradas = registros.filter((r) => r.tipo === "entrada");
+        const salidas = registros.filter((r) => r.tipo === "salida");
 
-        for (const fecha in planilla[empleadoId]) {
-          const registros = planilla[empleadoId][fecha];
-          const entradas = registros.filter((r) => r.tipo === "entrada");
-          const salidas = registros.filter((r) => r.tipo === "salida");
-          if (entradas.length === 0 || salidas.length === 0) continue;
+        if (entradas.length === 0 || salidas.length === 0) continue;
 
-          entradas.sort((a, b) => a.time.localeCompare(b.time));
-          salidas.sort((a, b) => a.time.localeCompare(b.time));
+        entradas.sort((a, b) => a.time.localeCompare(b.time));
+        salidas.sort((a, b) => a.time.localeCompare(b.time));
 
-          const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
-          const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
-          const corte = new Date(horaEntrada);
-          corte.setHours(16, 0, 0, 0);
+        const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
+        const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
+        const corte = new Date(horaEntrada);
+        corte.setHours(16, 0, 0, 0);
 
-          let horasNormales = 0;
-          let horasExtras = 0;
+        let horasNormales = 0;
+        let horasExtras = 0;
 
-          if (horaSalida <= corte) {
-            horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-          } else if (horaEntrada < corte) {
-            horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
-            horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
-          } else {
-            horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-          }
-
-          totalNormal += horasNormales;
-          totalExtra += horasExtras;
+        // Calcular horas normales y extras
+        if (horaSalida <= corte) {
+          horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+        } else if (horaEntrada < corte) {
+          horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
+          horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
+        } else {
+          horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
         }
 
-        totalNormal = Math.round(totalNormal * 100) / 100;
-        totalExtra = Math.round(totalExtra * 100) / 100;
-        const totalHoras = totalNormal + totalExtra;
-
-        // Buscar el empleado en la lista
-        const empleado = empleados.find((emp) => emp.id === empleadoId || emp.nombre === empleadoId) || {};
-        const salarioH = empleado.salarioH || 0;
-        const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
-
-        if (totalHoras > 0) {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${empleado.nombre || "Desconocido"}</td>
-            <td>${empleado.identificacion || "N/A"}</td>
-            <td>${totalNormal}</td>
-            <td>${totalExtra}</td>
-            <td>${totalHoras}</td>
-            <td>$ ${totalPagar}</td>
-          `;
-          tbody.appendChild(tr);
-        }
+        totalNormal += horasNormales;
+        totalExtra += horasExtras;
       }
-    });
+
+      totalNormal = Math.round(totalNormal * 100) / 100;
+      totalExtra = Math.round(totalExtra * 100) / 100;
+      const totalHoras = totalNormal + totalExtra;
+
+      // Buscar el empleado en la lista de empleados
+      const empleado = empleados.find(emp => emp.id === empleadoId);
+      const salarioH = empleado ? empleado.salarioH : 0;
+      const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
+
+      if (totalHoras > 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${empleado ? empleado.nombre : "Desconocido"}</td>
+          <td>${empleado ? empleado.identificacion : "N/A"}</td>
+          <td>${totalNormal}</td>
+          <td>${totalExtra}</td>
+          <td>${totalHoras}</td>
+          <td>$ ${totalPagar}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
   });
 }
 
