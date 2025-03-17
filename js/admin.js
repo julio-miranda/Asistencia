@@ -5,8 +5,17 @@
 // ===================
 // Verificación de Sesión Automática
 // ===================
+// js/admin.js
+
+// ===================
+// Variables Globales para Empresa y Sucursal del Admin
+// ===================
 let adminEmpresa = "";
 let adminSucursal = "";
+
+// ===================
+// Verificación de Sesión Automática
+// ===================
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     // Obtener datos de sesión y validar su existencia
@@ -87,7 +96,7 @@ function mostrarTabla(tabla) {
   }
 }
 
-// Cargar la tabla de empleados
+// Cargar la tabla de empleados filtrando por empresa, sucursal y rol "empleado"
 async function cargarEmpleados() {
   // Inicializar o destruir DataTable si ya existe
   const empleadosTable = $("#empleadosTable").DataTable({
@@ -139,7 +148,7 @@ async function cargarEmpleados() {
   empleadosTable.draw();
 }
 
-// Cargar la tabla de asistencias
+// Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas de la semana actual
 async function cargarAsistencias() {
   const asistenciasTable = $("#asistenciasTable").DataTable({
     scrollX: true,
@@ -420,7 +429,7 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   try {
     // Encriptar la contraseña del nuevo empleado usando encrypt_data
     const hashedPassword = encrypt_data(pass);
-    // Crear el nuevo empleado en Firestore e incluir empresa y sucursal
+    // Crear el nuevo empleado en Firestore e incluir empresa y sucursal del admin
     const newUserRef = await db.collection("usuarios").add({
       nombre: nombre,
       identificacion: identificacion,
@@ -477,8 +486,10 @@ function calcularPlanillaSemanal() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener las asistencias de la semana
+  // Obtener las asistencias de la semana filtradas por empresa y sucursal
   db.collection("asistencias")
+    .where("empresa", "==", adminEmpresa)
+    .where("sucursal", "==", adminSucursal)
     .where("fecha", ">=", formatDate(lunes))
     .where("fecha", "<=", formatDate(domingo))
     .onSnapshot(snapshot => {
@@ -625,17 +636,11 @@ document.addEventListener("DOMContentLoaded", () => {
 // ====================
 // Evento para cerrar sesión
 // ====================
-
 document.addEventListener("DOMContentLoaded", function () {
   const logoutButton = document.getElementById("logout-button");
   if (logoutButton) {
     logoutButton.addEventListener("click", function () {
-      // Opción 1: Si ya tienes la función logout() definida en auth.js:
       logout();
-
-      // Opción 2: Eliminar la sesión directamente de localStorage
-      // localStorage.removeItem("session");
-      // window.location.href = "index.html";
     });
   } else {
     console.error("El botón de cerrar sesión no se encontró en el DOM.");
