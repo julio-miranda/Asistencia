@@ -180,54 +180,63 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener todos los empleados para luego asociar la asistencia con el nombre
+  // Obtener todos los empleados para asociar la asistencia con su nombre
   const empleados = await db.collection("usuarios").get().then(empSnapshot => {
     return empSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   });
 
   // Escuchar cambios en la colección "asistencias"
   db.collection("asistencias").onSnapshot((snapshot) => {
+    console.log("Snapshot de asistencias, documentos:", snapshot.size);
     const planilla = {};
 
     snapshot.forEach((doc) => {
       const data = doc.data();
 
-      // Filtrar por empresa, sucursal y semana actual
+      // Convertir data.fecha: si es un Firestore Timestamp, se usa toDate()
+      let fechaDoc;
+      if (data.fecha && data.fecha.toDate) {
+        fechaDoc = data.fecha.toDate();
+      } else {
+        fechaDoc = new Date(data.fecha);
+      }
+
+      // Filtrar por empresa, sucursal y que la fecha esté dentro de la semana actual
       if (
         data.empresa === adminEmpresa &&
         data.sucursal === adminSucursal &&
-        new Date(data.fecha) >= lunes &&
-        new Date(data.fecha) <= domingo
+        fechaDoc >= lunes &&
+        fechaDoc <= domingo
       ) {
         const empleadoId = data.user;
         if (!planilla[empleadoId]) {
           planilla[empleadoId] = {};
         }
-        const fecha = data.fecha;
-        if (!planilla[empleadoId][fecha]) {
-          planilla[empleadoId][fecha] = [];
+        // Si el campo fecha se almacena como string (por ejemplo "YYYY-MM-DD")
+        // se puede usar ese mismo string; en otro caso, formatearlo:
+        const fechaKey = formatDate(fechaDoc);
+        if (!planilla[empleadoId][fechaKey]) {
+          planilla[empleadoId][fechaKey] = [];
         }
-        planilla[empleadoId][fecha].push(data);
+        planilla[empleadoId][fechaKey].push(data);
       }
     });
 
-    // Construir un arreglo con las filas a agregar a la DataTable
+    // Construir arreglo de filas para DataTables
     const rows = [];
-
     for (const empleadoId in planilla) {
       let totalNormal = 0;
       let totalExtra = 0;
-
       for (const fecha in planilla[empleadoId]) {
         const registros = planilla[empleadoId][fecha];
         const entradas = registros.filter((r) => r.tipo === "entrada");
         const salidas = registros.filter((r) => r.tipo === "salida");
-
         if (entradas.length === 0 || salidas.length === 0) continue;
 
         entradas.sort((a, b) => a.time.localeCompare(b.time));
         salidas.sort((a, b) => a.time.localeCompare(b.time));
 
+        // Para la hora, suponemos que 'time' es un string "HH:MM"
         const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
         const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
         const corte = new Date(horaEntrada);
@@ -235,8 +244,6 @@ async function cargarAsistencias() {
 
         let horasNormales = 0;
         let horasExtras = 0;
-
-        // Calcular horas normales y extras
         if (horaSalida <= corte) {
           horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
         } else if (horaEntrada < corte) {
@@ -249,12 +256,11 @@ async function cargarAsistencias() {
         totalNormal += horasNormales;
         totalExtra += horasExtras;
       }
-
       totalNormal = Math.round(totalNormal * 100) / 100;
       totalExtra = Math.round(totalExtra * 100) / 100;
       const totalHoras = totalNormal + totalExtra;
 
-      // Buscar el empleado en la lista para obtener nombre e identificación
+      // Buscar el empleado para obtener nombre e identificación
       const empleado = empleados.find(emp => emp.id === empleadoId);
       const salarioH = empleado ? empleado.salarioH : 0;
       const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
@@ -271,7 +277,7 @@ async function cargarAsistencias() {
       }
     }
 
-    // Actualizar la DataTable usando la API (en lugar de manipular directament
+    // Actualizar la DataTable usando la API de DataTables
     asistenciasTable.clear();
     rows.forEach(row => asistenciasTable.row.add(row));
     asistenciasTable.draw();
