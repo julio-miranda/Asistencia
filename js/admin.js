@@ -180,77 +180,56 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener la lista de empleados
-  const empleados = await db.collection("usuarios").get().then(empSnapshot => {
-    return empSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  });
+  // Escuchar en tiempo real los documentos de "asistencias" filtrados por empresa y sucursal
+  db.collection("asistencias")
+    .where("empresa", "==", adminEmpresa)
+    .where("sucursal", "==", adminSucursal)
+    .onSnapshot((snapshot) => {
+      console.log("Documentos de asistencias recibidos:", snapshot.docs.length);
+      const tbody = document.querySelector("#asistenciasTable tbody");
+      tbody.innerHTML = "";
 
-  // Se usa onSnapshot para actualizar en tiempo real
-  db.collection("asistencias").onSnapshot((snapshot) => {
-    console.log("Documentos de asistencias recibidos:", snapshot.docs.length);
-    snapshot.docs.forEach(doc => {
-      console.log("Asistencia:", doc.data());
-    });
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        // Convertir la fecha del documento a objeto Date para el filtrado
+        const fechaDoc = new Date(data.fecha);
+        if (fechaDoc >= lunes && fechaDoc <= domingo) {
+          // Crear fila para el evento de "Entrada"
+          let trEntrada = document.createElement("tr");
+          trEntrada.innerHTML = `
+            <td>${data.user}</td>
+            <td>${data.fecha}</td>
+            <td>Escaneo</td>
+            <td>Entrada</td>
+            <td>${data.entrada}</td>
+            <td>${data.status || ""}</td>
+            <td>
+              <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
+            </td>
+          `;
+          tbody.appendChild(trEntrada);
 
-    // Agrupar las asistencias por empleado (usando el nombre, ya que el campo 'user' es el nombre)
-    const planilla = {};
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      // Convertir sucursal a número para comparar correctamente
-      if (
-        data.empresa === adminEmpresa &&
-        Number(data.sucursal) === Number(adminSucursal) &&
-        new Date(data.fecha) >= lunes &&
-        new Date(data.fecha) <= domingo
-      ) {
-        const empleadoKey = data.user; // 'user' es el nombre del empleado en tu objeto
-        if (!planilla[empleadoKey]) {
-          planilla[empleadoKey] = [];
+          // Crear fila para el evento de "Salida"
+          let trSalida = document.createElement("tr");
+          trSalida.innerHTML = `
+            <td>${data.user}</td>
+            <td>${data.fecha}</td>
+            <td>Escaneo</td>
+            <td>Salida</td>
+            <td>${data.salida}</td>
+            <td>${data.status || ""}</td>
+            <td>
+              <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
+            </td>
+          `;
+          tbody.appendChild(trSalida);
         }
-        planilla[empleadoKey].push(data);
-      }
-    });
-
-    // Verificar en consola la agrupación obtenida
-    console.log("Planilla agrupada:", planilla);
-
-    // Limpiar el cuerpo de la tabla
-    const tbody = document.querySelector("#asistenciasTable tbody");
-    tbody.innerHTML = "";
-
-    // Procesar cada grupo (por empleado)
-    for (const empleadoKey in planilla) {
-      let totalHoras = 0;
-      planilla[empleadoKey].forEach(registro => {
-        const horaEntrada = crearFechaCompleta(registro.fecha, registro.entrada);
-        const horaSalida = crearFechaCompleta(registro.fecha, registro.salida);
-        const horasTrabajadas = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-        totalHoras += horasTrabajadas;
       });
-      totalHoras = Math.round(totalHoras * 100) / 100;
 
-      // Se busca si existe un empleado con este nombre en la lista de empleados
-      const empleadoEncontrado = empleados.find(emp => emp.nombre === empleadoKey);
-      const nombreEmpleado = empleadoEncontrado ? empleadoEncontrado.nombre : empleadoKey;
-      const identificacion = empleadoEncontrado ? empleadoEncontrado.identificacion : "N/A";
-      const salarioH = empleadoEncontrado ? empleadoEncontrado.salarioH : 0;
-      const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
-
-      if (totalHoras > 0) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${nombreEmpleado}</td>
-          <td>${identificacion}</td>
-          <td>${totalHoras}</td>
-          <td>$ ${totalPagar}</td>
-        `;
-        tbody.appendChild(tr);
-      }
-    }
-
-    asistenciasTable.draw();
-  });
+      asistenciasTable.draw();
+    });
 }
+
 
 // ===================
 // Funciones CRUD de Empleados y Asistencias
