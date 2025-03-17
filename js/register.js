@@ -4,6 +4,7 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
     const numero     = document.getElementById("register-numero").value;
     const fecha      = document.getElementById("register-Fecha").value;
     const empresa    = document.getElementById("register-empresa").value;
+    const sucursal    = document.getElementById("register-sucursal").value;
     const direccion  = document.getElementById("register-direccion").value;
     const telefono   = document.getElementById("register-telefono").value;
     const email      = document.getElementById("register-email").value;
@@ -34,6 +35,7 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
             salarioH: 1.25,
             role: role,
             empresa: empresa,
+            sucursal: sucursal,
             direccion: direccion,
             telefono: telefono
         });

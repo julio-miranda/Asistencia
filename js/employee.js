@@ -162,6 +162,7 @@ async function registrarAsistencia() {
         }
         const userData = usuarioDoc.data();
         const empresa = userData.empresa;
+        const sucursal = userData.sucursal;
 
         // Obtener la ubicación de la empresa y actualizar allowedLat y allowedLng
         const empresaRef = db.collection("empresas").doc(empresa);
@@ -176,12 +177,11 @@ async function registrarAsistencia() {
                 try {
                     const position = await getCurrentPositionPromise();
                     await empresaRef.set({
+                        empresa: empresa,
+                        sucursal: sucursal,
                         lat: position.coords.latitude,
                         lng: position.coords.longitude
                     });
-                    // Asignar la ubicación obtenida a las variables globales
-                    allowedLat = position.coords.latitude;
-                    allowedLng = position.coords.longitude;
                 } catch (error) {
                     console.error("Error al obtener la ubicación:", error);
                     alert("Error al obtener la ubicación. Verifica los permisos de tu navegador.");
@@ -218,6 +218,7 @@ async function registrarAsistencia() {
                         userId: uid,
                         user: userData.nombre,
                         empresa: empresa,
+                        sucursal: sucursal,
                         fecha: fechaHoy,
                         entrada: now.toLocaleTimeString(),
                         salida: null,
@@ -229,6 +230,7 @@ async function registrarAsistencia() {
                         userId: uid,
                         user: userData.nombre,
                         empresa: empresa,
+                        sucursal: sucursal,
                         fecha: fechaHoy,
                         entrada: now.toLocaleTimeString(),
                         salida: null,
