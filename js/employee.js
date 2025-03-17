@@ -249,6 +249,7 @@ async function registrarAsistencia() {
                     });
                 }
                 alert(`Entrada registrada a las ${now.toLocaleTimeString()} (${status}).`);
+                scanProcesado = false;
             } else {
                 // Segunda vez escaneando hoy -> Registrar salida
                 await asistenciaRef.update({
