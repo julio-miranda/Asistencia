@@ -209,7 +209,7 @@ async function cargarAsistencias() {
         empleados.push({ id: doc.id, ...doc.data() });
       });
 
-      const tbody = document.querySelector("#planillaTable tbody");
+      const tbody = document.querySelector("#asistenciasTable tbody");
       tbody.innerHTML = "";
 
       for (const empleadoId in planilla) {
