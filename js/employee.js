@@ -14,8 +14,8 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
     const Δλ = (lon2 - lon1) * Math.PI / 180;
 
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distancia en metros
@@ -23,9 +23,9 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
 
 // Función para convertir getCurrentPosition en una promesa
 function getCurrentPositionPromise(options = {}) {
-  return new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, options);
-  });
+    return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+    });
 }
 
 // Función que verifica la ubicación actual del usuario
@@ -37,7 +37,7 @@ function checkLocation(successCallback, errorCallback) {
         errorCallback();
         return;
     }
-    
+
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             position => {
@@ -166,15 +166,20 @@ async function registrarAsistencia() {
         const empresa = userData.empresa;
         const sucursal = userData.sucursal;
 
-        // Obtener la ubicación de la empresa y actualizar allowedLat y allowedLng
-        const empresaRef = db.collection("empresas").doc(empresa);
-        const empresaDoc = await empresaRef.get();
-        if (empresaDoc.exists) {
-            const empresaData = empresaDoc.data();
+        // Obtener la ubicación de la empresa y sucursal
+        const empresaRef = db.collection("empresas")
+            .where("empresa", "==", empresa)
+            .where("sucursal", "==", sucursal);
+
+        const empresaSnapshot = await empresaRef.get();
+
+        if (!empresaSnapshot.empty) {
+            // Se encontró la empresa y sucursal en la BD
+            const empresaData = empresaSnapshot.docs[0].data();
             allowedLat = empresaData.lat;
             allowedLng = empresaData.lng;
         } else {
-            // Si la empresa no existe, se obtiene la posición actual y se crea el documento
+            // Si la empresa y sucursal no existen, obtener ubicación actual y registrar en Firestore
             if (navigator.geolocation) {
                 try {
                     const position = await getCurrentPositionPromise();
@@ -184,6 +189,10 @@ async function registrarAsistencia() {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude
                     });
+
+                    allowedLat = position.coords.latitude;
+                    allowedLng = position.coords.longitude;
+
                 } catch (error) {
                     console.error("Error al obtener la ubicación:", error);
                     alert("Error al obtener la ubicación. Verifica los permisos de tu navegador.");
