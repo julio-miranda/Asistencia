@@ -144,6 +144,7 @@ async function cargarEmpleados() {
 
 // Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas (semana actual)
 async function cargarAsistencias() {
+  // Inicializar la DataTable
   const asistenciasTable = $("#asistenciasTable").DataTable({
     scrollX: true,
     destroy: true,
@@ -168,7 +169,7 @@ async function cargarAsistencias() {
 
   asistenciasTable.clear().draw();
 
-  // Calcular el rango de fechas de la semana actual
+  // Calcular el rango de fechas de la semana actual (lunes a domingo)
   const hoy = new Date();
   const diaSemana = hoy.getDay();
   const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
@@ -179,18 +180,18 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener todos los empleados (fuera de la consulta de asistencias)
+  // Obtener todos los empleados para luego asociar la asistencia con el nombre
   const empleados = await db.collection("usuarios").get().then(empSnapshot => {
     return empSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   });
 
-  // Obtener todas las asistencias para el rango de fechas (sin filtrar por fecha aún)
+  // Escuchar cambios en la colección "asistencias"
   db.collection("asistencias").onSnapshot((snapshot) => {
     const planilla = {};
 
     snapshot.forEach((doc) => {
       const data = doc.data();
-      
+
       // Filtrar por empresa, sucursal y semana actual
       if (
         data.empresa === adminEmpresa &&
@@ -210,11 +211,9 @@ async function cargarAsistencias() {
       }
     });
 
-    // Crear la tabla de asistencias
-    const tbody = document.querySelector("#asistenciasTable tbody");
-    tbody.innerHTML = "";
+    // Construir un arreglo con las filas a agregar a la DataTable
+    const rows = [];
 
-    // Iterar sobre cada empleado y procesar las asistencias
     for (const empleadoId in planilla) {
       let totalNormal = 0;
       let totalExtra = 0;
@@ -255,24 +254,27 @@ async function cargarAsistencias() {
       totalExtra = Math.round(totalExtra * 100) / 100;
       const totalHoras = totalNormal + totalExtra;
 
-      // Buscar el empleado en la lista de empleados
+      // Buscar el empleado en la lista para obtener nombre e identificación
       const empleado = empleados.find(emp => emp.id === empleadoId);
       const salarioH = empleado ? empleado.salarioH : 0;
       const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
 
       if (totalHoras > 0) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${empleado ? empleado.nombre : "Desconocido"}</td>
-          <td>${empleado ? empleado.identificacion : "N/A"}</td>
-          <td>${totalNormal}</td>
-          <td>${totalExtra}</td>
-          <td>${totalHoras}</td>
-          <td>$ ${totalPagar}</td>
-        `;
-        tbody.appendChild(tr);
+        rows.push([
+          empleado ? empleado.nombre : "Desconocido",
+          empleado ? empleado.identificacion : "N/A",
+          totalNormal,
+          totalExtra,
+          totalHoras,
+          "$ " + totalPagar
+        ]);
       }
     }
+
+    // Actualizar la DataTable usando la API (en lugar de manipular directament
+    asistenciasTable.clear();
+    rows.forEach(row => asistenciasTable.row.add(row));
+    asistenciasTable.draw();
   });
 }
 
@@ -424,7 +426,7 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   const salarioH = document.getElementById("empleado-salario").value;
   const nacimiento = document.getElementById("empleado-nacimiento").value;
   const descripcion = document.getElementById("descripcion").value;
-  
+
   // Para el manejo de contraseña, se actúa distinto según se esté agregando o editando.
   let updateData = {
     nombre: nombre,
