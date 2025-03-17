@@ -1,11 +1,14 @@
 // ===================
-// js/admin.js
+// admin.js
 // ===================
+
+// Variables globales para almacenar la empresa y sucursal del admin
+let adminEmpresa = "";
+let adminSucursal = "";
 
 // ===================
 // Verificación de Sesión Automática
 // ===================
-
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     // Obtener datos de sesión y validar su existencia
@@ -27,13 +30,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const userData = userDocSnapshot.data();
-
     if (!userData.role) {
       console.warn("El usuario no tiene rol asignado.");
       return redirectToLogin();
     }
 
-    // Verifica que el usuario tenga rol "admin"
+    // Verificar que el usuario tenga rol "admin"
     if (userData.role !== "admin") {
       return handleUnauthorizedRole(userData.role);
     }
@@ -63,7 +65,6 @@ function redirectToLogin() {
  * @param {string} role - Rol del usuario.
  */
 function handleUnauthorizedRole(role) {
-  // Si el rol es "empleado", redirige a employee.html; de lo contrario, vuelve al login.
   window.location.href = role === "empleado" ? "employee.html" : "index.html";
 }
 
@@ -71,7 +72,10 @@ function handleUnauthorizedRole(role) {
 // Funciones para manejo de DataTables y contenido
 // ===================
 
-// Función para mostrar/ocultar secciones
+/**
+ * Muestra u oculta las secciones según el parámetro recibido.
+ * @param {string} tabla - "empleados" o "asistencias"
+ */
 function mostrarTabla(tabla) {
   document.getElementById("navbar-links").classList.remove("active");
   document.getElementById("perfil-container").style.display = 'none';
@@ -86,9 +90,8 @@ function mostrarTabla(tabla) {
   }
 }
 
-// Cargar la tabla de empleados
+// Cargar la tabla de empleados filtrando por empresa, sucursal y rol "empleado"
 async function cargarEmpleados() {
-  // Inicializar o destruir DataTable si ya existe
   const empleadosTable = $("#empleadosTable").DataTable({
     scrollX: true,
     destroy: true,
@@ -111,7 +114,6 @@ async function cargarEmpleados() {
     }
   });
 
-  // Limpiar la tabla antes de cargar nuevos datos
   empleadosTable.clear().draw();
 
   // Consulta filtrada por empresa, sucursal y rol "empleado"
@@ -134,11 +136,10 @@ async function cargarEmpleados() {
     ]);
   });
 
-  // Dibujar la tabla con los nuevos datos
   empleadosTable.draw();
 }
 
-// Cargar la tabla de asistencias
+// Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas (semana actual)
 async function cargarAsistencias() {
   const asistenciasTable = $("#asistenciasTable").DataTable({
     scrollX: true,
@@ -148,31 +149,23 @@ async function cargarAsistencias() {
     searching: true,
     ordering: true,
     language: {
-      "lengthMenu": "Mostrar _MENU_ registros",
-      "zeroRecords": "No se encontraron resultados",
-      "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
-      "infoFiltered": "(filtrado de _MAX_ total)",
-      "search": "Buscar:",
+      lengthMenu: "Mostrar _MENU_ registros",
+      zeroRecords: "No se encontraron resultados",
+      info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+      infoFiltered: "(filtrado de _MAX_ total)",
+      search: "Buscar:",
       paginate: {
         first: "Primero",
         last: "Último",
         next: "Siguiente",
-        previous: "Anterior"
-      }
+        previous: "Anterior",
+      },
     },
-    columnDefs: [
-      { targets: 0, width: "150px", className: "dt-center" },
-      { targets: 1, width: "120px", className: "dt-center" },
-      { targets: 2, width: "80px", className: "dt-center" },
-      { targets: 3, width: "120px", className: "dt-center" },
-      { targets: 4, width: "150px", className: "dt-center" },
-      { targets: 5, width: "150px", className: "dt-center" },
-      { targets: 6, width: "180px", className: "dt-center" }
-    ]
   });
+
   asistenciasTable.clear().draw();
 
-  // Calcular rango de fechas de la semana actual (lunes a domingo)
+  // Calcular rango de fechas de la semana actual
   const hoy = new Date();
   const diaSemana = hoy.getDay();
   const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
@@ -183,21 +176,20 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  try {
-    // Obtener todas las asistencias de la empresa y sucursal
-    const snapshot = await db.collection("asistencias")
-      .where("empresa", "==", adminEmpresa)
-      .where("sucursal", "==", adminSucursal)
-      .get();
-
+  // Obtener todas las asistencias (sin filtro en la consulta)
+  db.collection("asistencias").onSnapshot((snapshot) => {
     const planilla = {};
 
-    snapshot.forEach(doc => {
+    snapshot.forEach((doc) => {
       const data = doc.data();
-      const fechaAsistencia = new Date(data.fecha);
-
-      // Filtrar localmente por fecha dentro del rango de la semana actual
-      if (fechaAsistencia >= lunes && fechaAsistencia <= domingo) {
+      
+      // Filtrar en el cliente
+      if (
+        data.empresa === adminEmpresa &&
+        data.sucursal === adminSucursal &&
+        new Date(data.fecha) >= lunes &&
+        new Date(data.fecha) <= domingo
+      ) {
         const empleadoId = data.user;
         if (!planilla[empleadoId]) {
           planilla[empleadoId] = {};
@@ -211,75 +203,80 @@ async function cargarAsistencias() {
     });
 
     // Obtener información de empleados
-    const empSnapshot = await db.collection("usuarios").get();
-    const empleados = [];
-    empSnapshot.forEach(doc => {
-      empleados.push({ id: doc.id, ...doc.data() });
-    });
+    db.collection("usuarios").get().then((empSnapshot) => {
+      const empleados = [];
+      empSnapshot.forEach((doc) => {
+        empleados.push({ id: doc.id, ...doc.data() });
+      });
 
-    const tbody = document.querySelector("#planillaTable tbody");
-    tbody.innerHTML = '';
+      const tbody = document.querySelector("#planillaTable tbody");
+      tbody.innerHTML = "";
 
-    for (const empleadoId in planilla) {
-      let totalNormal = 0;
-      let totalExtra = 0;
-      for (const fecha in planilla[empleadoId]) {
-        const registros = planilla[empleadoId][fecha];
-        const entradas = registros.filter(r => r.tipo === "entrada");
-        const salidas = registros.filter(r => r.tipo === "salida");
-        if (entradas.length === 0 || salidas.length === 0) continue;
-        entradas.sort((a, b) => a.time.localeCompare(b.time));
-        salidas.sort((a, b) => a.time.localeCompare(b.time));
-        const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
-        const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
-        const corte = new Date(horaEntrada);
-        corte.setHours(16, 0, 0, 0);
+      for (const empleadoId in planilla) {
+        let totalNormal = 0;
+        let totalExtra = 0;
 
-        let horasNormales = 0;
-        let horasExtras = 0;
-        if (horaSalida <= corte) {
-          horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-        } else if (horaEntrada < corte) {
-          horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
-          horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
-        } else {
-          horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+        for (const fecha in planilla[empleadoId]) {
+          const registros = planilla[empleadoId][fecha];
+          const entradas = registros.filter((r) => r.tipo === "entrada");
+          const salidas = registros.filter((r) => r.tipo === "salida");
+          if (entradas.length === 0 || salidas.length === 0) continue;
+
+          entradas.sort((a, b) => a.time.localeCompare(b.time));
+          salidas.sort((a, b) => a.time.localeCompare(b.time));
+
+          const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
+          const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
+          const corte = new Date(horaEntrada);
+          corte.setHours(16, 0, 0, 0);
+
+          let horasNormales = 0;
+          let horasExtras = 0;
+
+          if (horaSalida <= corte) {
+            horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+          } else if (horaEntrada < corte) {
+            horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
+            horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
+          } else {
+            horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+          }
+
+          totalNormal += horasNormales;
+          totalExtra += horasExtras;
         }
-        totalNormal += horasNormales;
-        totalExtra += horasExtras;
-      }
-      totalNormal = Math.round(totalNormal * 100) / 100;
-      totalExtra = Math.round(totalExtra * 100) / 100;
-      const totalHoras = totalNormal + totalExtra;
 
-      // Buscar el empleado correspondiente en la lista
-      const empleado = empleados.find(emp => emp.id === empleadoId || emp.nombre === empleadoId) || {};
-      const salarioH = empleado.salarioH || 0;
-      const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
+        totalNormal = Math.round(totalNormal * 100) / 100;
+        totalExtra = Math.round(totalExtra * 100) / 100;
+        const totalHoras = totalNormal + totalExtra;
 
-      if (totalHoras > 0) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td>${empleado.nombre || 'Desconocido'}</td>
-            <td>${empleado.identificacion || 'N/A'}</td>
+        // Buscar el empleado en la lista
+        const empleado = empleados.find((emp) => emp.id === empleadoId || emp.nombre === empleadoId) || {};
+        const salarioH = empleado.salarioH || 0;
+        const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
+
+        if (totalHoras > 0) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${empleado.nombre || "Desconocido"}</td>
+            <td>${empleado.identificacion || "N/A"}</td>
             <td>${totalNormal}</td>
             <td>${totalExtra}</td>
             <td>${totalHoras}</td>
             <td>$ ${totalPagar}</td>
           `;
-        tbody.appendChild(tr);
+          tbody.appendChild(tr);
+        }
       }
-    }
-  } catch (error) {
-    console.error("Error al cargar asistencias:", error);
-  }
+    });
+  });
 }
 
 // ===================
 // Funciones CRUD de Empleados y Asistencias
 // ===================
 
-// Eliminar un empleado (solo se elimina el documento en Firestore)
+// Eliminar un empleado (se elimina el documento en Firestore)
 async function eliminarEmpleado(id) {
   if (!confirm("¿Estás seguro de eliminar este empleado?")) return;
   try {
@@ -309,7 +306,7 @@ async function eliminarAsistencia(id) {
 // Funciones de Perfil y Actualización
 // ===================
 
-// Mostrar el perfil del usuario actual (según uid en la cookie de sesión)
+// Mostrar el perfil del usuario actual
 function verPerfil() {
   document.getElementById("navbar-links").classList.remove("active");
   const sessionData = getSessionData();
@@ -364,7 +361,6 @@ document.getElementById("perfil-form").addEventListener("submit", async (e) => {
       salarioH: salarioH
     };
     if (cambiarContrasena && nuevaContrasena) {
-      // Encriptar la nueva contraseña usando encrypt_data
       updateData.password = encrypt_data(nuevaContrasena);
     }
     await db.collection("usuarios").doc(uid).update(updateData);
@@ -425,9 +421,8 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
     return;
   }
   try {
-    // Encriptar la contraseña del nuevo empleado usando encrypt_data
     const hashedPassword = encrypt_data(pass);
-    // Crear el nuevo empleado en Firestore e incluir empresa y sucursal
+    // Crear el nuevo empleado en Firestore e incluir empresa y sucursal del admin
     const newUserRef = await db.collection("usuarios").add({
       nombre: nombre,
       identificacion: identificacion,
@@ -440,7 +435,6 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
       empresa: adminEmpresa,
       sucursal: adminSucursal
     });
-    // Actualizar el documento con su propio ID como UID, si se requiere
     await db.collection("usuarios").doc(newUserRef.id).update({ UID: newUserRef.id });
     alert("Empleado agregado correctamente");
     window.location.href = "admin.html";
@@ -466,7 +460,7 @@ function mostrarPlanilla() {
   document.getElementById("tabla-empleados").style.display = 'none';
   document.getElementById("tabla-asistencias").style.display = 'none';
   document.getElementById("planilla-container").style.display = 'block';
-  calcularPlanillaSemanal(); // Configurar listener en tiempo real
+  calcularPlanillaSemanal();
 }
 
 function calcularPlanillaSemanal() {
@@ -484,23 +478,31 @@ function calcularPlanillaSemanal() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener las asistencias de la semana
+  // Convertir fechas a formato comparable
+  const fechaInicio = formatDate(lunes);
+  const fechaFin = formatDate(domingo);
+
+  // Obtener todas las asistencias de la empresa y sucursal (sin filtrar por fecha aún)
   db.collection("asistencias")
-    .where("fecha", ">=", formatDate(lunes))
-    .where("fecha", "<=", formatDate(domingo))
+    .where("empresa", "==", adminEmpresa)
+    .where("sucursal", "==", adminSucursal)
     .onSnapshot(snapshot => {
       const planilla = {};
       snapshot.forEach(doc => {
         const data = doc.data();
-        const empleadoId = data.user;
-        if (!planilla[empleadoId]) {
-          planilla[empleadoId] = {};
-        }
         const fecha = data.fecha;
-        if (!planilla[empleadoId][fecha]) {
-          planilla[empleadoId][fecha] = [];
+
+        // Filtrar en el cliente por la semana actual
+        if (fecha >= fechaInicio && fecha <= fechaFin) {
+          const empleadoId = data.user;
+          if (!planilla[empleadoId]) {
+            planilla[empleadoId] = {};
+          }
+          if (!planilla[empleadoId][fecha]) {
+            planilla[empleadoId][fecha] = [];
+          }
+          planilla[empleadoId][fecha].push(data);
         }
-        planilla[empleadoId][fecha].push(data);
       });
 
       // Obtener información de empleados
@@ -551,13 +553,13 @@ function calcularPlanillaSemanal() {
           if (totalHoras > 0) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td>${empleado.nombre || 'Desconocido'}</td>
-                <td>${empleado.identificacion || 'N/A'}</td>
-                <td>${totalNormal}</td>
-                <td>${totalExtra}</td>
-                <td>${totalHoras}</td>
-                <td>$ ${totalPagar}</td>
-              `;
+              <td>${empleado.nombre || 'Desconocido'}</td>
+              <td>${empleado.identificacion || 'N/A'}</td>
+              <td>${totalNormal}</td>
+              <td>${totalExtra}</td>
+              <td>${totalHoras}</td>
+              <td>$ ${totalPagar}</td>
+            `;
             tbody.appendChild(tr);
           }
         }
@@ -602,14 +604,12 @@ function formatDate(dateObj) {
 // Menú y Navegación
 // ===================
 let currentVisibleSectionId = null;
-
 document.addEventListener("DOMContentLoaded", () => {
   const menuToggle = document.getElementById("menu-toggle");
   const navbarLinks = document.getElementById("navbar-links");
 
   menuToggle.addEventListener("click", function () {
     const isActive = navbarLinks.classList.contains("active");
-
     if (!isActive) {
       const sections = document.querySelectorAll(".form-container, .tabla-container, .planilla-container");
       sections.forEach(section => {
@@ -632,7 +632,6 @@ document.addEventListener("DOMContentLoaded", () => {
 // ====================
 // Evento para cerrar sesión
 // ====================
-
 document.addEventListener("DOMContentLoaded", function () {
   const logoutButton = document.getElementById("logout-button");
   if (logoutButton) {
