@@ -33,8 +33,8 @@ function checkLocation(successCallback, errorCallback) {
     // Validar que la ubicación permitida esté definida
     if (allowedLat === null || allowedLng === null) {
         alert("La ubicación permitida no está definida.");
-        errorCallback();
         window.location.href = "employee.html";
+        errorCallback();
         return;
     }
     
@@ -53,6 +53,7 @@ function checkLocation(successCallback, errorCallback) {
             error => {
                 console.error("Error al obtener la ubicación:", error);
                 alert("Error al obtener la ubicación. Verifica los permisos de tu navegador.");
+                window.location.href = "employee.html";
                 errorCallback();
             }
         );
