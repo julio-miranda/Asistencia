@@ -180,66 +180,67 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Se obtiene también la lista de empleados para relacionar los datos de asistencias
+  // Obtener la lista de empleados
   const empleados = await db.collection("usuarios").get().then(empSnapshot => {
     return empSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   });
 
-  // Usamos onSnapshot para reaccionar en tiempo real a los cambios
+  // Se usa onSnapshot para actualizar en tiempo real
   db.collection("asistencias").onSnapshot((snapshot) => {
-    // Verificar en consola los documentos recibidos
-    console.log("Cantidad de asistencias recibidas:", snapshot.docs.length);
+    console.log("Documentos de asistencias recibidos:", snapshot.docs.length);
     snapshot.docs.forEach(doc => {
       console.log("Asistencia:", doc.data());
     });
 
-    // Agrupar los registros por empleado (la agrupación es sencilla ya que cada documento contiene entrada y salida)
+    // Agrupar las asistencias por empleado (usando el nombre, ya que el campo 'user' es el nombre)
     const planilla = {};
     snapshot.forEach((doc) => {
       const data = doc.data();
-      
-      // Filtrar por empresa, sucursal y semana actual
+      // Convertir sucursal a número para comparar correctamente
       if (
         data.empresa === adminEmpresa &&
-        data.sucursal === adminSucursal &&
+        Number(data.sucursal) === Number(adminSucursal) &&
         new Date(data.fecha) >= lunes &&
         new Date(data.fecha) <= domingo
       ) {
-        const empleadoId = data.user; // En este caso 'user' contiene el nombre (puedes cambiar la lógica si usas un ID)
-        if (!planilla[empleadoId]) {
-          planilla[empleadoId] = [];
+        const empleadoKey = data.user; // 'user' es el nombre del empleado en tu objeto
+        if (!planilla[empleadoKey]) {
+          planilla[empleadoKey] = [];
         }
-        planilla[empleadoId].push(data);
+        planilla[empleadoKey].push(data);
       }
     });
 
-    // Crear la tabla de asistencias usando la estructura modificada
+    // Verificar en consola la agrupación obtenida
+    console.log("Planilla agrupada:", planilla);
+
+    // Limpiar el cuerpo de la tabla
     const tbody = document.querySelector("#asistenciasTable tbody");
     tbody.innerHTML = "";
 
-    for (const empleadoId in planilla) {
+    // Procesar cada grupo (por empleado)
+    for (const empleadoKey in planilla) {
       let totalHoras = 0;
-
-      planilla[empleadoId].forEach(registro => {
-        // Convertir las cadenas de entrada y salida a objetos Date usando la función auxiliar
+      planilla[empleadoKey].forEach(registro => {
         const horaEntrada = crearFechaCompleta(registro.fecha, registro.entrada);
         const horaSalida = crearFechaCompleta(registro.fecha, registro.salida);
         const horasTrabajadas = (horaSalida - horaEntrada) / (1000 * 60 * 60);
         totalHoras += horasTrabajadas;
       });
-
       totalHoras = Math.round(totalHoras * 100) / 100;
-      
-      // Buscar información del empleado en la lista (aquí se asume que 'empleadoId' coincide con algún dato único; de lo contrario, adapta la búsqueda)
-      const empleado = empleados.find(emp => emp.id === empleadoId) || {};
-      const salarioH = empleado.salarioH || 0;
+
+      // Se busca si existe un empleado con este nombre en la lista de empleados
+      const empleadoEncontrado = empleados.find(emp => emp.nombre === empleadoKey);
+      const nombreEmpleado = empleadoEncontrado ? empleadoEncontrado.nombre : empleadoKey;
+      const identificacion = empleadoEncontrado ? empleadoEncontrado.identificacion : "N/A";
+      const salarioH = empleadoEncontrado ? empleadoEncontrado.salarioH : 0;
       const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
 
       if (totalHoras > 0) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${empleado.nombre || empleadoId || "Desconocido"}</td>
-          <td>${empleado.identificacion || "N/A"}</td>
+          <td>${nombreEmpleado}</td>
+          <td>${identificacion}</td>
           <td>${totalHoras}</td>
           <td>$ ${totalPagar}</td>
         `;
@@ -247,7 +248,6 @@ async function cargarAsistencias() {
       }
     }
 
-    // Opcional: actualizar DataTable
     asistenciasTable.draw();
   });
 }
