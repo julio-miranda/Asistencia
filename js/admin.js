@@ -5,7 +5,8 @@
 // ===================
 // Verificación de Sesión Automática
 // ===================
-
+let adminEmpresa = "";
+let adminSucursal = "";
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     // Obtener datos de sesión y validar su existencia
@@ -37,6 +38,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (userData.role !== "admin") {
       return handleUnauthorizedRole(userData.role);
     }
+
+    // Asignar la empresa y sucursal del admin para filtrar datos
+    adminEmpresa = userData.empresa;
+    adminSucursal = userData.sucursal;
 
     console.log("Usuario autorizado, cargando datos...");
     cargarEmpleados();
@@ -110,7 +115,13 @@ async function cargarEmpleados() {
   // Limpiar la tabla antes de cargar nuevos datos
   empleadosTable.clear().draw();
 
-  const empleadosSnapshot = await db.collection("usuarios").get();
+  // Consulta filtrada por empresa, sucursal y rol "empleado"
+  const empleadosSnapshot = await db.collection("usuarios")
+    .where("empresa", "==", adminEmpresa)
+    .where("sucursal", "==", adminSucursal)
+    .where("role", "==", "empleado")
+    .get();
+
   empleadosSnapshot.forEach(doc => {
     const data = doc.data();
     empleadosTable.row.add([
@@ -120,7 +131,7 @@ async function cargarEmpleados() {
       data.email,
       data.descripcion,
       `<button onclick="editarEmpleado('${doc.id}')" style="background-color:green;">Editar</button>
-         <button onclick="eliminarEmpleado('${doc.id}')" style="background-color:red;">Eliminar</button>`
+       <button onclick="eliminarEmpleado('${doc.id}')" style="background-color:red;">Eliminar</button>`
     ]);
   });
 
@@ -161,20 +172,100 @@ async function cargarAsistencias() {
     ]
   });
   asistenciasTable.clear().draw();
-  const asistenciasSnapshot = await db.collection("asistencias").get();
 
-  asistenciasSnapshot.forEach(doc => {
-    const data = doc.data();
-    asistenciasTable.row.add([
-      data.user,
-      data.fecha,
-      data.scanNumber || "N/A",
-      data.tipo || "N/A",
-      data.time || "No registrado",
-      data.status || "N/A",
-      `<button onclick="eliminarAsistencia('${doc.id}')" style="background-color:red;">Eliminar</button>`
-    ]).draw();
-  });
+  // Calcular rango de fechas de la semana actual (lunes a domingo)
+  const hoy = new Date();
+  const diaSemana = hoy.getDay();
+  const diffLunes = (diaSemana === 0) ? -6 : (1 - diaSemana);
+  const lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() + diffLunes);
+  lunes.setHours(0, 0, 0, 0);
+  const domingo = new Date(lunes);
+  domingo.setDate(lunes.getDate() + 6);
+  domingo.setHours(23, 59, 59, 999);
+
+  // Consulta filtrada por empresa, sucursal y fecha
+  db.collection("asistencias")
+    .where("empresa", "==", adminEmpresa)
+    .where("sucursal", "==", adminSucursal)
+    .where("fecha", ">=", formatDate(lunes))
+    .where("fecha", "<=", formatDate(domingo))
+    .onSnapshot(snapshot => {
+      const planilla = {};
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const empleadoId = data.user;
+        if (!planilla[empleadoId]) {
+          planilla[empleadoId] = {};
+        }
+        const fecha = data.fecha;
+        if (!planilla[empleadoId][fecha]) {
+          planilla[empleadoId][fecha] = [];
+        }
+        planilla[empleadoId][fecha].push(data);
+      });
+
+      // Obtener información de empleados
+      db.collection("usuarios").get().then(empSnapshot => {
+        const empleados = [];
+        empSnapshot.forEach(doc => {
+          empleados.push({ id: doc.id, ...doc.data() });
+        });
+
+        const tbody = document.querySelector("#planillaTable tbody");
+        tbody.innerHTML = '';
+        for (const empleadoId in planilla) {
+          let totalNormal = 0;
+          let totalExtra = 0;
+          for (const fecha in planilla[empleadoId]) {
+            const registros = planilla[empleadoId][fecha];
+            const entradas = registros.filter(r => r.tipo === "entrada");
+            const salidas = registros.filter(r => r.tipo === "salida");
+            if (entradas.length === 0 || salidas.length === 0) continue;
+            entradas.sort((a, b) => a.time.localeCompare(b.time));
+            salidas.sort((a, b) => a.time.localeCompare(b.time));
+            const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
+            const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
+            const corte = new Date(horaEntrada);
+            corte.setHours(16, 0, 0, 0);
+
+            let horasNormales = 0;
+            let horasExtras = 0;
+            if (horaSalida <= corte) {
+              horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+            } else if (horaEntrada < corte) {
+              horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
+              horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
+            } else {
+              horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+            }
+            totalNormal += horasNormales;
+            totalExtra += horasExtras;
+          }
+          totalNormal = Math.round(totalNormal * 100) / 100;
+          totalExtra = Math.round(totalExtra * 100) / 100;
+          const totalHoras = totalNormal + totalExtra;
+
+          // Buscar el empleado correspondiente en la lista
+          const empleado = empleados.find(emp => emp.id === empleadoId || emp.nombre === empleadoId) || {};
+          const salarioH = empleado.salarioH || 0;
+          const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
+
+          if (totalHoras > 0) {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${empleado.nombre || 'Desconocido'}</td>
+                <td>${empleado.identificacion || 'N/A'}</td>
+                <td>${totalNormal}</td>
+                <td>${totalExtra}</td>
+                <td>${totalHoras}</td>
+                <td>$ ${totalPagar}</td>
+              `;
+            tbody.appendChild(tr);
+          }
+        }
+      });
+    });
 }
 
 // ===================
@@ -329,7 +420,7 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   try {
     // Encriptar la contraseña del nuevo empleado usando encrypt_data
     const hashedPassword = encrypt_data(pass);
-    // Crear el nuevo empleado en Firestore
+    // Crear el nuevo empleado en Firestore e incluir empresa y sucursal
     const newUserRef = await db.collection("usuarios").add({
       nombre: nombre,
       identificacion: identificacion,
@@ -338,7 +429,9 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
       email: email,
       descripcion: descripcion || "Sin descripción",
       role: "empleado",
-      password: hashedPassword
+      password: hashedPassword,
+      empresa: adminEmpresa,
+      sucursal: adminSucursal
     });
     // Actualizar el documento con su propio ID como UID, si se requiere
     await db.collection("usuarios").doc(newUserRef.id).update({ UID: newUserRef.id });
