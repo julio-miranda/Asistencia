@@ -144,7 +144,6 @@ async function cargarEmpleados() {
 
 // Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas (semana actual)
 async function cargarAsistencias() {
-  // Inicializar la DataTable
   const asistenciasTable = $("#asistenciasTable").DataTable({
     scrollX: true,
     destroy: true,
@@ -169,7 +168,7 @@ async function cargarAsistencias() {
 
   asistenciasTable.clear().draw();
 
-  // Calcular el rango de fechas de la semana actual (lunes a domingo)
+  // Calcular el rango de fechas de la semana actual
   const hoy = new Date();
   const diaSemana = hoy.getDay();
   const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
@@ -180,63 +179,62 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Obtener todos los empleados para asociar la asistencia con su nombre
+  // Obtener todos los empleados (fuera de la consulta de asistencias)
   const empleados = await db.collection("usuarios").get().then(empSnapshot => {
     return empSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   });
 
-  // Escuchar cambios en la colección "asistencias"
+  // Obtener todas las asistencias para el rango de fechas (sin filtrar por fecha aún)
   db.collection("asistencias").onSnapshot((snapshot) => {
-    console.log("Snapshot de asistencias, documentos:", snapshot.size);
+    // Registra la cantidad de documentos y sus datos
+    console.log("Cantidad de asistencias recibidas:", snapshot.docs.length);
+    snapshot.docs.forEach(doc => {
+      console.log("Asistencia:", doc.data());
+    });
+  
     const planilla = {};
-
+  
     snapshot.forEach((doc) => {
       const data = doc.data();
-
-      // Convertir data.fecha: si es un Firestore Timestamp, se usa toDate()
-      let fechaDoc;
-      if (data.fecha && data.fecha.toDate) {
-        fechaDoc = data.fecha.toDate();
-      } else {
-        fechaDoc = new Date(data.fecha);
-      }
-
-      // Filtrar por empresa, sucursal y que la fecha esté dentro de la semana actual
+      
+      // Filtrar por empresa, sucursal y semana actual
       if (
         data.empresa === adminEmpresa &&
         data.sucursal === adminSucursal &&
-        fechaDoc >= lunes &&
-        fechaDoc <= domingo
+        new Date(data.fecha) >= lunes &&
+        new Date(data.fecha) <= domingo
       ) {
         const empleadoId = data.user;
         if (!planilla[empleadoId]) {
           planilla[empleadoId] = {};
         }
-        // Si el campo fecha se almacena como string (por ejemplo "YYYY-MM-DD")
-        // se puede usar ese mismo string; en otro caso, formatearlo:
-        const fechaKey = formatDate(fechaDoc);
-        if (!planilla[empleadoId][fechaKey]) {
-          planilla[empleadoId][fechaKey] = [];
+        const fecha = data.fecha;
+        if (!planilla[empleadoId][fecha]) {
+          planilla[empleadoId][fecha] = [];
         }
-        planilla[empleadoId][fechaKey].push(data);
+        planilla[empleadoId][fecha].push(data);
       }
     });
 
-    // Construir arreglo de filas para DataTables
-    const rows = [];
+    // Crear la tabla de asistencias
+    const tbody = document.querySelector("#asistenciasTable tbody");
+    tbody.innerHTML = "";
+
+    // Iterar sobre cada empleado y procesar las asistencias
     for (const empleadoId in planilla) {
       let totalNormal = 0;
       let totalExtra = 0;
+
       for (const fecha in planilla[empleadoId]) {
         const registros = planilla[empleadoId][fecha];
         const entradas = registros.filter((r) => r.tipo === "entrada");
         const salidas = registros.filter((r) => r.tipo === "salida");
+
         if (entradas.length === 0 || salidas.length === 0) continue;
 
         entradas.sort((a, b) => a.time.localeCompare(b.time));
         salidas.sort((a, b) => a.time.localeCompare(b.time));
 
-        // Para la hora, suponemos que 'time' es un string "HH:MM"
         const horaEntrada = crearFechaCompleta(fecha, entradas[0].time);
         const horaSalida = crearFechaCompleta(fecha, salidas[salidas.length - 1].time);
         const corte = new Date(horaEntrada);
@@ -244,6 +242,8 @@ async function cargarAsistencias() {
 
         let horasNormales = 0;
         let horasExtras = 0;
+
+        // Calcular horas normales y extras
         if (horaSalida <= corte) {
           horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
         } else if (horaEntrada < corte) {
@@ -256,31 +256,29 @@ async function cargarAsistencias() {
         totalNormal += horasNormales;
         totalExtra += horasExtras;
       }
+
       totalNormal = Math.round(totalNormal * 100) / 100;
       totalExtra = Math.round(totalExtra * 100) / 100;
       const totalHoras = totalNormal + totalExtra;
 
-      // Buscar el empleado para obtener nombre e identificación
+      // Buscar el empleado en la lista de empleados
       const empleado = empleados.find(emp => emp.id === empleadoId);
       const salarioH = empleado ? empleado.salarioH : 0;
       const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
 
       if (totalHoras > 0) {
-        rows.push([
-          empleado ? empleado.nombre : "Desconocido",
-          empleado ? empleado.identificacion : "N/A",
-          totalNormal,
-          totalExtra,
-          totalHoras,
-          "$ " + totalPagar
-        ]);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${empleado ? empleado.nombre : "Desconocido"}</td>
+          <td>${empleado ? empleado.identificacion : "N/A"}</td>
+          <td>${totalNormal}</td>
+          <td>${totalExtra}</td>
+          <td>${totalHoras}</td>
+          <td>$ ${totalPagar}</td>
+        `;
+        tbody.appendChild(tr);
       }
     }
-
-    // Actualizar la DataTable usando la API de DataTables
-    asistenciasTable.clear();
-    rows.forEach(row => asistenciasTable.row.add(row));
-    asistenciasTable.draw();
   });
 }
 
@@ -432,7 +430,7 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   const salarioH = document.getElementById("empleado-salario").value;
   const nacimiento = document.getElementById("empleado-nacimiento").value;
   const descripcion = document.getElementById("descripcion").value;
-
+  
   // Para el manejo de contraseña, se actúa distinto según se esté agregando o editando.
   let updateData = {
     nombre: nombre,
