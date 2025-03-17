@@ -6,6 +6,9 @@
 let adminEmpresa = "";
 let adminSucursal = "";
 
+// Variable global para determinar si se está editando un empleado (almacena el ID) o se está agregando uno nuevo.
+let currentEditingEmployeeId = null;
+
 // ===================
 // Verificación de Sesión Automática
 // ===================
@@ -140,7 +143,6 @@ async function cargarEmpleados() {
 }
 
 // Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas (semana actual)
-// Función para cargar la tabla de asistencias filtrada por fecha y sucursal
 async function cargarAsistencias() {
   const asistenciasTable = $("#asistenciasTable").DataTable({
     scrollX: true,
@@ -379,6 +381,8 @@ document.getElementById("perfil-form").addEventListener("submit", async (e) => {
 
 // Mostrar el formulario para agregar un nuevo empleado
 function agregarEmpleado() {
+  // Al agregar, nos aseguramos de limpiar la variable de edición
+  currentEditingEmployeeId = null;
   document.getElementById("empleado-container").style.display = 'block';
   document.getElementById("tabla-empleados").style.display = 'none';
   document.getElementById("tabla-asistencias").style.display = 'none';
@@ -389,6 +393,7 @@ function agregarEmpleado() {
 
 // Cargar los datos del empleado en el formulario para editar
 async function editarEmpleado(id) {
+  currentEditingEmployeeId = id;
   const docRef = db.collection("usuarios").doc(id);
   const doc = await docRef.get();
   if (doc.exists) {
@@ -404,6 +409,9 @@ async function editarEmpleado(id) {
     document.getElementById("tabla-asistencias").style.display = 'none';
     document.getElementById("planilla-container").style.display = 'none';
     document.getElementById("titulo-form-empleado").textContent = "Editar Empleado";
+    // En modo edición, se puede optar por no obligar a cambiar la contraseña.
+    document.getElementById("register-password").value = "";
+    document.getElementById("register-password2").value = "";
   }
 }
 
@@ -416,32 +424,52 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   const salarioH = document.getElementById("empleado-salario").value;
   const nacimiento = document.getElementById("empleado-nacimiento").value;
   const descripcion = document.getElementById("descripcion").value;
-  const pass = document.getElementById("register-password").value;
-  const pass2 = document.getElementById("register-password2").value;
-  if (pass !== pass2) {
-    alert("Las contraseñas no coinciden");
-    return;
-  }
+  
+  // Para el manejo de contraseña, se actúa distinto según se esté agregando o editando.
+  let updateData = {
+    nombre: nombre,
+    email: email,
+    identificacion: identificacion,
+    salarioH: salarioH,
+    nacimiento: nacimiento,
+    descripcion: descripcion || "Sin descripción"
+  };
+
   try {
-    const hashedPassword = encrypt_data(pass);
-    // Crear el nuevo empleado en Firestore e incluir empresa y sucursal del admin
-    const newUserRef = await db.collection("usuarios").add({
-      nombre: nombre,
-      identificacion: identificacion,
-      salarioH: salarioH,
-      nacimiento: nacimiento,
-      email: email,
-      descripcion: descripcion || "Sin descripción",
-      role: "empleado",
-      password: hashedPassword,
-      empresa: adminEmpresa,
-      sucursal: adminSucursal
-    });
-    await db.collection("usuarios").doc(newUserRef.id).update({ UID: newUserRef.id });
-    alert("Empleado agregado correctamente");
+    if (currentEditingEmployeeId) {
+      // MODO EDICIÓN
+      // Si se han ingresado datos en los campos de contraseña, se actualiza el password.
+      const pass = document.getElementById("register-password").value;
+      const pass2 = document.getElementById("register-password2").value;
+      if (pass || pass2) {
+        if (pass !== pass2) {
+          alert("Las contraseñas no coinciden");
+          return;
+        }
+        updateData.password = encrypt_data(pass);
+      }
+      await db.collection("usuarios").doc(currentEditingEmployeeId).update(updateData);
+      alert("Empleado actualizado correctamente");
+    } else {
+      // MODO AGREGAR: Se requiere obligatoriamente contraseña.
+      const pass = document.getElementById("register-password").value;
+      const pass2 = document.getElementById("register-password2").value;
+      if (pass !== pass2) {
+        alert("Las contraseñas no coinciden");
+        return;
+      }
+      updateData.password = encrypt_data(pass);
+      // Agregar campos adicionales
+      updateData.role = "empleado";
+      updateData.empresa = adminEmpresa;
+      updateData.sucursal = adminSucursal;
+      const newUserRef = await db.collection("usuarios").add(updateData);
+      await db.collection("usuarios").doc(newUserRef.id).update({ UID: newUserRef.id });
+      alert("Empleado agregado correctamente");
+    }
     window.location.href = "admin.html";
   } catch (error) {
-    alert("Error al agregar el empleado: " + error.message);
+    alert("Error al guardar el empleado: " + error.message);
   }
 });
 
