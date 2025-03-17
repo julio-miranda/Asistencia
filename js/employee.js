@@ -1,4 +1,8 @@
 // js/employee.js
+
+// Coordenadas de la ubicación permitida y radio en metros
+let allowedLat = null;      // Se actualizará al obtener la ubicación de la empresa
+let allowedLng = null;      // Se actualizará al obtener la ubicación de la empresa
 const allowedRadius = 10;   // Radio permitido en metros
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
@@ -10,8 +14,8 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
     const Δλ = (lon2 - lon1) * Math.PI / 180;
 
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) *
-        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distancia en metros
@@ -19,19 +23,20 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
 
 // Función para convertir getCurrentPosition en una promesa
 function getCurrentPositionPromise(options = {}) {
-    return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, options);
-    });
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+  });
 }
 
 // Función que verifica la ubicación actual del usuario
 function checkLocation(successCallback, errorCallback) {
+    // Validar que la ubicación permitida esté definida
     if (allowedLat === null || allowedLng === null) {
         alert("La ubicación permitida no está definida.");
         errorCallback();
         return;
     }
-
+    
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             position => {
@@ -55,6 +60,83 @@ function checkLocation(successCallback, errorCallback) {
         errorCallback();
     }
 }
+
+// Verifica que el usuario tenga una sesión válida y rol "empleado"
+checkUserSession(function (uid) {
+    db.collection("usuarios").doc(uid).get().then(doc => {
+        if (!doc.exists || doc.data().role !== "empleado") {
+            alert("No tienes permisos para acceder a este módulo.");
+            window.location.href = "index.html";
+            return;
+        }
+    }).catch(error => {
+        console.error("Error al obtener datos del usuario:", error);
+        alert("Error al obtener datos del usuario. Se cerrará la sesión.");
+        logout();
+    });
+});
+
+// Bandera para evitar múltiples procesamientos
+let scanProcesado = false;
+
+// Función que se ejecuta cuando se detecta un código QR correctamente
+function onScanSuccess(decodedText, decodedResult) {
+    if (scanProcesado) return;
+
+    if (decodedText !== "J.M Asociados") {
+        alert("QR incorrecto. Intenta nuevamente.");
+        return;
+    }
+
+    scanProcesado = true;
+
+    // Se limpia el escáner y se llama a registrarAsistencia
+    html5QrcodeScanner.clear().then(() => {
+        registrarAsistencia();
+    }).catch((error) => {
+        console.error("Error al detener el escáner", error);
+        alert("Error al detener el escáner. Intenta nuevamente.");
+        scanProcesado = false;
+    });
+}
+
+function onScanError(errorMessage) {
+    if (errorMessage.includes("File input")) {
+        alert("Por favor, usa la cámara para escanear el código QR.");
+        html5QrcodeScanner.clear().then(() => {
+            html5QrcodeScanner.render(onScanSuccess, onScanError);
+        }).catch((error) => {
+            console.error("Error al reiniciar el escáner", error);
+            alert("Error al reiniciar el escáner.");
+        });
+    }
+}
+
+// Configura el escáner en el contenedor "reader"
+var html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    {
+        fps: 10,
+        qrbox: 250,
+        videoConstraints: { facingMode: "environment" },
+        useFileInput: false
+    },
+    false
+);
+
+html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+// Deshabilitar carga de archivos
+document.addEventListener('DOMContentLoaded', function () {
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) {
+        fileInput.setAttribute('disabled', true);
+        fileInput.addEventListener('click', function () {
+            alert("La carga de imágenes está deshabilitada. Solo puedes escanear el QR con la cámara.");
+            window.location.href = "employee.html";
+        });
+    }
+});
 
 // Función para registrar asistencia con verificación de ubicación
 async function registrarAsistencia() {
@@ -89,6 +171,7 @@ async function registrarAsistencia() {
             allowedLat = empresaData.lat;
             allowedLng = empresaData.lng;
         } else {
+            // Si la empresa no existe, se obtiene la posición actual y se crea el documento
             if (navigator.geolocation) {
                 try {
                     const position = await getCurrentPositionPromise();
@@ -120,7 +203,7 @@ async function registrarAsistencia() {
 
             if (!asistenciaDoc.exists) {
                 // Primera vez escaneando hoy -> Registrar entrada
-                // Nota: Revisar la condición según la regla de negocio (por ejemplo, usar hour > 8 si a las 8 se considera a tiempo)
+                // Nota: Revisar la condición según la regla de negocio (usar "hour > 8" si a las 8 se considera a tiempo)
                 let status = hour >= 8 ? "Tarde" : "A tiempo";
 
                 if (status === "Tarde") {
