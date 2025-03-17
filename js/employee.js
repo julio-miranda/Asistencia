@@ -252,8 +252,10 @@ async function registrarAsistencia() {
         }, (distance) => {
             if (distance !== undefined) {
                 alert(`No estás en la ubicación permitida para registrar la asistencia. Distancia detectada: ${distance.toFixed(2)} metros.`);
+                window.location.href = "employee.html";
             } else {
                 alert("No se pudo verificar la ubicación. Intenta nuevamente.");
+                window.location.href = "employee.html";
             }
             scanProcesado = false;
         });
