@@ -162,9 +162,9 @@ async function cargarAsistencias() {
         first: "Primero",
         last: "Último",
         next: "Siguiente",
-        previous: "Anterior",
-      },
-    },
+        previous: "Anterior"
+      }
+    }
   });
 
   asistenciasTable.clear().draw();
@@ -191,10 +191,11 @@ async function cargarAsistencias() {
 
       snapshot.forEach((doc) => {
         const data = doc.data();
-        // Agregamos "T00:00:00" para que se interprete como hora local
+        // Se agrega "T00:00:00" para que se interprete la fecha en hora local
         const fechaDoc = new Date(data.fecha + "T00:00:00");
         console.log("fecha del documento", fechaDoc);
-        // Filtra los documentos que estén en el rango (lunes a domingo)
+
+        // Filtrar los documentos que estén dentro del rango (lunes a domingo)
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
           console.log('usuario:', data.user);
           console.log('fecha:', data.fecha);
@@ -202,12 +203,13 @@ async function cargarAsistencias() {
           console.log('entrada:', data.entrada);
           console.log('salida:', data.salida);
           console.log('justificacion:', data.justificacion);
-          // Crear una única fila para mostrar entrada y salida del día
+
+          // Crear una fila única que muestra la entrada y salida en columnas separadas
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${data.user}</td>
             <td>${data.fecha}</td>
-            <td>${data.status || ""}</td>
+            <td>${data.status}</td>
             <td>${data.entrada}</td>
             <td>${data.salida}</td>
             <td>${data.justificacion || ""}</td>
