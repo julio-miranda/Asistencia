@@ -170,59 +170,56 @@ async function cargarAsistencias() {
   asistenciasTable.clear().draw();
 
   // Calcular el rango de fechas de la semana actual (de lunes a domingo)
-  const hoy = new Date();
-  const diaSemana = hoy.getDay();
-  const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
-  const lunes = new Date(hoy);
-  lunes.setDate(hoy.getDate() + diffLunes);
-  lunes.setHours(0, 0, 0, 0);
-  const domingo = new Date(lunes);
-  domingo.setDate(lunes.getDate() + 6);
-  domingo.setHours(23, 59, 59, 999);
+  // Calcular el rango de fechas de la semana actual (de lunes a domingo)
+const hoy = new Date();
+const diaSemana = hoy.getDay();
+const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+const lunes = new Date(hoy);
+lunes.setDate(hoy.getDate() + diffLunes);
+lunes.setHours(0, 0, 0, 0);
+const domingo = new Date(lunes);
+domingo.setDate(lunes.getDate() + 6);
+domingo.setHours(23, 59, 59, 999);
 
-  // Escuchar en tiempo real los documentos de "asistencias"
-  db.collection("asistencias")
-    .where("empresa", "==", adminEmpresa)
-    .where("sucursal", "==", adminSucursal)
-    .onSnapshot((snapshot) => {
-      console.log("Documentos de asistencias recibidos:", snapshot.docs.length);
-      const tbody = document.querySelector("#asistenciasTable tbody");
-      tbody.innerHTML = "";
+console.log("Rango de fechas:");
+console.log("Lunes:", lunes);
+console.log("Domingo:", domingo);
 
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        // Se agrega "T00:00:00" para que se interprete la fecha en hora local
-        const fechaDoc = new Date(data.fecha + "T00:00:00");
-        console.log("fecha del documento", fechaDoc);
+db.collection("asistencias")
+  .where("empresa", "==", adminEmpresa)
+  .where("sucursal", "==", adminSucursal)
+  .onSnapshot((snapshot) => {
+    console.log("Documentos de asistencias recibidos:", snapshot.docs.length);
+    const tbody = document.querySelector("#asistenciasTable tbody");
+    tbody.innerHTML = "";
 
-        // Filtrar los documentos que estén dentro del rango (lunes a domingo)
-        if (fechaDoc >= lunes && fechaDoc <= domingo) {
-          console.log('usuario:', data.user);
-          console.log('fecha:', data.fecha);
-          console.log('status:', data.status);
-          console.log('entrada:', data.entrada);
-          console.log('salida:', data.salida);
-          console.log('justificacion:', data.justificacion);
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      // Agregamos "T00:00:00" para interpretar la fecha en hora local
+      const fechaDoc = new Date(data.fecha + "T00:00:00");
+      console.log("Fecha del documento:", fechaDoc);
 
-          // Crear una fila única que muestra la entrada y salida en columnas separadas
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${data.user}</td>
-            <td>${data.fecha}</td>
-            <td>${data.status}</td>
-            <td>${data.entrada}</td>
-            <td>${data.salida}</td>
-            <td>${data.justificacion || ""}</td>
-            <td>
-              <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
-            </td>
-          `;
-          tbody.appendChild(tr);
-        }
-      });
-
-      asistenciasTable.draw();
+      // Para depurar, comenta el filtro por fechas
+      // if (fechaDoc >= lunes && fechaDoc <= domingo) {
+      // Crear una única fila para mostrar la entrada y salida del día
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${data.user}</td>
+        <td>${data.fecha}</td>
+        <td>Escaneo</td>
+        <td>${data.entrada}</td>
+        <td>${data.salida}</td>
+        <td>${data.justificacion || ""}</td>
+        <td>
+          <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+      // }
     });
+
+    asistenciasTable.draw();
+  });
 }
 
 // ===================
