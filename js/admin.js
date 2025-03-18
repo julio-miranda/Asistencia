@@ -460,11 +460,11 @@ function calcularPlanillaSemanal() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Convertir fechas a formato comparable
+  // Convertir fechas a formato "YYYY-MM-DD"
   const fechaInicio = formatDate(lunes);
   const fechaFin = formatDate(domingo);
 
-  // Obtener todas las asistencias filtradas por empresa y sucursal
+  // Consultar las asistencias filtradas por empresa, sucursal y semana actual
   db.collection("asistencias")
     .where("empresa", "==", adminEmpresa)
     .where("sucursal", "==", adminSucursal)
@@ -473,17 +473,19 @@ function calcularPlanillaSemanal() {
       snapshot.forEach(doc => {
         const data = doc.data();
         const fecha = data.fecha;
-        // Filtrar en el cliente por la semana actual
+        // Filtrar los documentos por fecha (semana actual)
         if (fecha >= fechaInicio && fecha <= fechaFin) {
-          const empleadoId = data.user;
-          if (!planilla[empleadoId]) {
-            planilla[empleadoId] = [];
+          // En tu objeto, el campo "user" contiene el nombre del empleado
+          const empleadoKey = data.user;
+          if (!planilla[empleadoKey]) {
+            planilla[empleadoKey] = [];
           }
-          planilla[empleadoId].push(data);
+          planilla[empleadoKey].push(data);
         }
       });
 
-      // Obtener información de empleados
+      // Para relacionar la asistencia con la información del empleado,
+      // obtenemos la lista de empleados.
       db.collection("usuarios").get().then(empSnapshot => {
         const empleados = [];
         empSnapshot.forEach(doc => {
@@ -491,25 +493,56 @@ function calcularPlanillaSemanal() {
         });
 
         tbody.innerHTML = "";
-        for (const empleadoId in planilla) {
-          let totalHoras = 0;
-          planilla[empleadoId].forEach(registro => {
+        // Iterar sobre cada grupo de asistencias (por empleado)
+        for (const empleadoKey in planilla) {
+          let totalHorasNormales = 0;
+          let totalHorasExtras = 0;
+
+          planilla[empleadoKey].forEach(registro => {
+            // Convertir las cadenas de "fecha" y "entrada"/"salida" a objetos Date.
             const horaEntrada = crearFechaCompleta(registro.fecha, registro.entrada);
             const horaSalida = crearFechaCompleta(registro.fecha, registro.salida);
-            const horasTrabajadas = (horaSalida - horaEntrada) / (1000 * 60 * 60);
-            totalHoras += horasTrabajadas;
+            // Se define el corte a las 16:00 para distinguir horas normales de extras.
+            const corte = new Date(horaEntrada);
+            corte.setHours(16, 0, 0, 0);
+
+            let horasNormales = 0;
+            let horasExtras = 0;
+            if (horaSalida <= corte) {
+              // Si el empleado salió antes del corte, todas las horas son normales.
+              horasNormales = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+            } else if (horaEntrada < corte) {
+              // Si entró antes del corte y salió después, se dividen las horas.
+              horasNormales = (corte - horaEntrada) / (1000 * 60 * 60);
+              horasExtras = (horaSalida - corte) / (1000 * 60 * 60);
+            } else {
+              // Si entró después del corte, todas las horas son extras.
+              horasExtras = (horaSalida - horaEntrada) / (1000 * 60 * 60);
+            }
+
+            totalHorasNormales += horasNormales;
+            totalHorasExtras += horasExtras;
           });
-          totalHoras = Math.round(totalHoras * 100) / 100;
-          
-          const empleado = empleados.find(emp => emp.id === empleadoId) || {};
+
+          // Redondear a dos decimales
+          totalHorasNormales = Math.round(totalHorasNormales * 100) / 100;
+          totalHorasExtras = Math.round(totalHorasExtras * 100) / 100;
+          const totalHoras = Math.round((totalHorasNormales + totalHorasExtras) * 100) / 100;
+
+          // Buscar la información del empleado por nombre, ya que en tu objeto "user" se almacena el nombre.
+          const empleado = empleados.find(emp => emp.nombre === empleadoKey) || {};
+          const identificacion = empleado.identificacion || "N/A";
           const salarioH = empleado.salarioH || 0;
           const totalPagar = Math.round(totalHoras * salarioH * 100) / 100;
-          
+
+          // Si hay horas registradas, agregar la fila a la tabla
           if (totalHoras > 0) {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-              <td>${empleado.nombre || empleadoId || "Desconocido"}</td>
-              <td>${empleado.identificacion || "N/A"}</td>
+              <td>${empleado.nombre || empleadoKey || "Desconocido"}</td>
+              <td>${identificacion}</td>
+              <td>${totalHorasNormales}</td>
+              <td>${totalHorasExtras}</td>
               <td>${totalHoras}</td>
               <td>$ ${totalPagar}</td>
             `;
@@ -519,6 +552,7 @@ function calcularPlanillaSemanal() {
       });
     });
 }
+
 
 // Función para imprimir la planilla
 function imprimirPlanilla() {
