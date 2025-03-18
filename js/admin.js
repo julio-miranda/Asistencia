@@ -191,6 +191,7 @@ async function cargarAsistencias() {
 
       snapshot.forEach((doc) => {
         const data = doc.data();
+        console.log("Documentos de asistencias recibidos:", doc.data());
         // Convertir la fecha del documento a objeto Date para filtrar por rango
         const fechaDoc = new Date(data.fecha);
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
