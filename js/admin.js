@@ -191,19 +191,18 @@ async function cargarAsistencias() {
 
       snapshot.forEach((doc) => {
         const data = doc.data();
-        console.log("Documentos de asistencias recibidos:", doc.data());
-        // Convertir la fecha del documento a objeto Date para filtrar por rango
+        // Convertir la fecha del documento para el filtrado
         const fechaDoc = new Date(data.fecha);
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
-          // Crear una fila para mostrar entrada y salida en la misma fila
-          let tr = document.createElement("tr");
+          // Crear una única fila que muestre la entrada y salida en columnas separadas
+          const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${data.user}</td>
             <td>${data.fecha}</td>
-            <td>Escaneo</td>
+            <td>${data.status || ""}</td>
             <td>${data.entrada}</td>
             <td>${data.salida}</td>
-            <td>${data.status || ""}</td>
+            <td>${data.justificacion|| ""}</td>
             <td>
               <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
             </td>
@@ -211,7 +210,6 @@ async function cargarAsistencias() {
           tbody.appendChild(tr);
         }
       });
-
       asistenciasTable.draw();
     });
 }
