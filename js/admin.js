@@ -191,7 +191,8 @@ async function cargarAsistencias() {
 
       snapshot.forEach((doc) => {
         const data = doc.data();
-        const fechaDoc = new Date(data.fecha);
+        // Agregamos "T00:00:00" para que se interprete como hora local
+        const fechaDoc = new Date(data.fecha + "T00:00:00");
         console.log("fecha del documento", fechaDoc);
         // Filtra los documentos que estén en el rango (lunes a domingo)
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
@@ -370,7 +371,7 @@ document.getElementById("empleado-form").addEventListener("submit", async (e) =>
   const salarioH = document.getElementById("empleado-salario").value;
   const nacimiento = document.getElementById("empleado-nacimiento").value;
   const descripcion = document.getElementById("descripcion").value;
-  
+
   let updateData = {
     nombre: nombre,
     email: email,
