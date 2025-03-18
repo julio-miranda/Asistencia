@@ -169,7 +169,7 @@ async function cargarAsistencias() {
 
   asistenciasTable.clear().draw();
 
-  // Calcular el rango de fechas de la semana actual
+  // Calcular el rango de fechas de la semana actual (de lunes a domingo)
   const hoy = new Date();
   const diaSemana = hoy.getDay();
   const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
@@ -191,45 +191,29 @@ async function cargarAsistencias() {
 
       snapshot.forEach((doc) => {
         const data = doc.data();
-        // Convertir la fecha del documento a objeto Date para el filtrado
+        // Convertir la fecha del documento a objeto Date para filtrar por rango
         const fechaDoc = new Date(data.fecha);
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
-          // Crear fila para el evento de "Entrada"
-          let trEntrada = document.createElement("tr");
-          trEntrada.innerHTML = `
+          // Crear una fila para mostrar entrada y salida en la misma fila
+          let tr = document.createElement("tr");
+          tr.innerHTML = `
             <td>${data.user}</td>
             <td>${data.fecha}</td>
             <td>Escaneo</td>
-            <td>Entrada</td>
             <td>${data.entrada}</td>
-            <td>${data.status || ""}</td>
-            <td>
-              <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
-            </td>
-          `;
-          tbody.appendChild(trEntrada);
-
-          // Crear fila para el evento de "Salida"
-          let trSalida = document.createElement("tr");
-          trSalida.innerHTML = `
-            <td>${data.user}</td>
-            <td>${data.fecha}</td>
-            <td>Escaneo</td>
-            <td>Salida</td>
             <td>${data.salida}</td>
             <td>${data.status || ""}</td>
             <td>
               <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
             </td>
           `;
-          tbody.appendChild(trSalida);
+          tbody.appendChild(tr);
         }
       });
 
       asistenciasTable.draw();
     });
 }
-
 
 // ===================
 // Funciones CRUD de Empleados y Asistencias
