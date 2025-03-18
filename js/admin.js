@@ -196,6 +196,12 @@ async function cargarAsistencias() {
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
           // Crear una única fila que muestre la entrada y salida en columnas separadas
           const tr = document.createElement("tr");
+          console.log('usuario:', data.user);
+          console.log('fecha:', data.fecha);
+          console.log('status:', data.status);
+          console.log('entrada:', data.entrada);
+          console.log('salida:', data.salida);
+          console.log('justificacion:', data.justificacion);
           tr.innerHTML = `
             <td>${data.user}</td>
             <td>${data.fecha}</td>
