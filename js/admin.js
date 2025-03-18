@@ -145,7 +145,12 @@ async function cargarEmpleados() {
 // Cargar la tabla de asistencias filtrando por empresa, sucursal y rango de fechas (semana actual)
 // Se ha modificado para trabajar con un único documento por día que contiene ambos campos: entrada y salida.
 async function cargarAsistencias() {
-  const asistenciasTable = $("#asistenciasTable").DataTable({
+  // Mostrar la tabla cuando haya datos
+  const tablaAsistencias = document.getElementById("tabla-asistencias");
+  const tbody = document.querySelector("#asistenciasTable tbody");
+
+  // Inicializar DataTable
+  let dataTable = new DataTable("#asistenciasTable", {
     scrollX: true,
     destroy: true,
     autoWidth: false,
@@ -167,59 +172,55 @@ async function cargarAsistencias() {
     }
   });
 
-  asistenciasTable.clear().draw();
+  // Calcular el rango de fechas de la semana actual (lunes a domingo)
+  const hoy = new Date();
+  const diaSemana = hoy.getDay();
+  const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+  const lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() + diffLunes);
+  lunes.setHours(0, 0, 0, 0);
+  const domingo = new Date(lunes);
+  domingo.setDate(lunes.getDate() + 6);
+  domingo.setHours(23, 59, 59, 999);
 
-  // Calcular el rango de fechas de la semana actual (de lunes a domingo)
-  // Calcular el rango de fechas de la semana actual (de lunes a domingo)
-const hoy = new Date();
-const diaSemana = hoy.getDay();
-const diffLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
-const lunes = new Date(hoy);
-lunes.setDate(hoy.getDate() + diffLunes);
-lunes.setHours(0, 0, 0, 0);
-const domingo = new Date(lunes);
-domingo.setDate(lunes.getDate() + 6);
-domingo.setHours(23, 59, 59, 999);
+  console.log("Rango de fechas:");
+  console.log("Lunes:", lunes);
+  console.log("Domingo:", domingo);
 
-console.log("Rango de fechas:");
-console.log("Lunes:", lunes);
-console.log("Domingo:", domingo);
+  // Escuchar cambios en Firestore
+  db.collection("asistencias")
+    .where("empresa", "==", adminEmpresa)
+    .where("sucursal", "==", adminSucursal)
+    .onSnapshot((snapshot) => {
+      console.log("Documentos de asistencias recibidos:", snapshot.docs.length);
 
-db.collection("asistencias")
-  .where("empresa", "==", adminEmpresa)
-  .where("sucursal", "==", adminSucursal)
-  .onSnapshot((snapshot) => {
-    console.log("Documentos de asistencias recibidos:", snapshot.docs.length);
-    const tbody = document.querySelector("#asistenciasTable tbody");
-    tbody.innerHTML = "";
+      dataTable.clear().draw(); // Limpiar la tabla antes de agregar nuevos datos
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      // Agregamos "T00:00:00" para interpretar la fecha en hora local
-      const fechaDoc = new Date(data.fecha + "T00:00:00");
-      console.log("Fecha del documento:", fechaDoc);
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const fechaDoc = new Date(data.fecha + "T00:00:00");
 
-      // Para depurar, comenta el filtro por fechas
-      // if (fechaDoc >= lunes && fechaDoc <= domingo) {
-      // Crear una única fila para mostrar la entrada y salida del día
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${data.user}</td>
-        <td>${data.fecha}</td>
-        <td>Escaneo</td>
-        <td>${data.entrada}</td>
-        <td>${data.salida}</td>
-        <td>${data.justificacion || ""}</td>
-        <td>
-          <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-      // }
+        console.log("Fecha formateada:", fechaDoc);
+
+        // Validar si la fecha del documento está en la semana actual
+        if (fechaDoc >= lunes && fechaDoc <= domingo) {
+          console.log("Agregando fila para:", data.user);
+
+          // Agregar la fila a DataTable
+          dataTable.row.add([
+            data.user,
+            data.fecha,
+            data.status,
+            data.entrada,
+            data.salida,
+            data.justificacion || "",
+            `<button onclick="eliminarAsistencia('${doc.id}')" style="background-color:red;">Eliminar</button>`,
+          ]).draw();
+        } else {
+          console.log(`La fecha ${data.fecha} está fuera del rango.`);
+        }
+      });
     });
-
-    asistenciasTable.draw();
-  });
 }
 
 // ===================
