@@ -47,4 +47,4 @@ Este proyecto está licenciado bajo MIT License.
 ---
 
 **Autor:** Julio Miranda
-**Repositorio:** [GitHub](https://github.com/tu_usuario/proyecto-asistencia)
+**Repositorio:** [GitHub](https://github.com/julio_miranda/Aistencia)
