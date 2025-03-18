@@ -194,6 +194,7 @@ async function cargarAsistencias() {
         console.log("Documentos de asistencias recibidos:", doc.data());
         // Convertir la fecha del documento para el filtrado
         const fechaDoc = new Date(data.fecha);
+        console.log("fecha del documento", fechaDoc);
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
           // Crear una única fila que muestre la entrada y salida en columnas separadas
           const tr = document.createElement("tr");
