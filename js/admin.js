@@ -183,16 +183,11 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  console.log("Rango de fechas:");
-  console.log("Lunes:", lunes);
-  console.log("Domingo:", domingo);
-
   // Escuchar cambios en Firestore
   db.collection("asistencias")
     .where("empresa", "==", adminEmpresa)
     .where("sucursal", "==", adminSucursal)
     .onSnapshot((snapshot) => {
-      console.log("Documentos de asistencias recibidos:", snapshot.docs.length);
 
       dataTable.clear().draw(); // Limpiar la tabla antes de agregar nuevos datos
 
@@ -200,11 +195,8 @@ async function cargarAsistencias() {
         const data = doc.data();
         const fechaDoc = new Date(data.fecha + "T00:00:00");
 
-        console.log("Fecha formateada:", fechaDoc);
-
         // Validar si la fecha del documento está en la semana actual
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
-          console.log("Agregando fila para:", data.user);
 
           // Agregar la fila a DataTable
           dataTable.row.add([
