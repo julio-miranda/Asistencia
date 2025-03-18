@@ -22,7 +22,7 @@ Este proyecto es un sistema de control de asistencia basado en autenticación co
 ## Instalación y Configuración
 1. Clona el repositorio:
    ```sh
-   git clone https://github.com/tu_usuario/proyecto-asistencia.git
+   git clone https://github.com/julio-miranda/Asistencia.git
    ```
 2. Configura Firebase:
    - Crea un proyecto en Firebase.
