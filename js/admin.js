@@ -180,7 +180,7 @@ async function cargarAsistencias() {
   domingo.setDate(lunes.getDate() + 6);
   domingo.setHours(23, 59, 59, 999);
 
-  // Escuchar en tiempo real los documentos de "asistencias" filtrados por empresa y sucursal
+  // Escuchar en tiempo real los documentos de "asistencias"
   db.collection("asistencias")
     .where("empresa", "==", adminEmpresa)
     .where("sucursal", "==", adminSucursal)
@@ -191,26 +191,25 @@ async function cargarAsistencias() {
 
       snapshot.forEach((doc) => {
         const data = doc.data();
-        console.log("Documentos de asistencias recibidos:", doc.data());
-        // Convertir la fecha del documento para el filtrado
         const fechaDoc = new Date(data.fecha);
         console.log("fecha del documento", fechaDoc);
+        // Filtra los documentos que estén en el rango (lunes a domingo)
         if (fechaDoc >= lunes && fechaDoc <= domingo) {
-          // Crear una única fila que muestre la entrada y salida en columnas separadas
-          const tr = document.createElement("tr");
           console.log('usuario:', data.user);
           console.log('fecha:', data.fecha);
           console.log('status:', data.status);
           console.log('entrada:', data.entrada);
           console.log('salida:', data.salida);
           console.log('justificacion:', data.justificacion);
+          // Crear una única fila para mostrar entrada y salida del día
+          const tr = document.createElement("tr");
           tr.innerHTML = `
             <td>${data.user}</td>
             <td>${data.fecha}</td>
             <td>${data.status || ""}</td>
             <td>${data.entrada}</td>
             <td>${data.salida}</td>
-            <td>${data.justificacion|| ""}</td>
+            <td>${data.justificacion || ""}</td>
             <td>
               <button onclick="eliminarAsistencia('${doc.id}')">Eliminar</button>
             </td>
@@ -218,6 +217,7 @@ async function cargarAsistencias() {
           tbody.appendChild(tr);
         }
       });
+
       asistenciasTable.draw();
     });
 }
