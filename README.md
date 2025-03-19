@@ -46,5 +46,5 @@ Este proyecto está licenciado bajo MIT License.
 
 ---
 
-**Autor:** Julio Miranda
+**Autor:** Julio Armando Miranda Reyes
 **Repositorio:** [GitHub](https://github.com/julio-miranda/Asistencia)
