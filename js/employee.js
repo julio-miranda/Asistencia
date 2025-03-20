@@ -4,6 +4,7 @@
 let allowedLat = null;      // Se actualizará al obtener la ubicación de la empresa
 let allowedLng = null;      // Se actualizará al obtener la ubicación de la empresa
 const allowedRadius = 10;   // Radio permitido en metros
+let empresa;
 
 // Función para calcular la distancia entre dos coordenadas usando la fórmula de Haversine
 function calcularDistancia(lat1, lon1, lat2, lon2) {
@@ -91,8 +92,9 @@ function onScanSuccess(decodedText, decodedResult) {
         scanProcesado = false;
         return;
     }
-    
-    if (decodedText !== `${sessionData.empresa}`) {
+    const uid = sessionData.uid;
+    const usuarioDoc = db.collection("usuarios").doc(uid).get().data();
+    if (decodedText !== `${usuarioDoc.empresa}`) {
         alert("QR incorrecto. Intenta nuevamente."+sessionData.empresa);
         return;
     }
@@ -170,7 +172,7 @@ async function registrarAsistencia() {
             return;
         }
         const userData = usuarioDoc.data();
-        const empresa = userData.empresa;
+        empresa = userData.empresa;
         const sucursal = userData.sucursal;
 
         // Obtener la ubicación de la empresa y sucursal
