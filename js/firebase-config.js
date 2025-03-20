@@ -2,13 +2,13 @@
 
 // 1. Configuración de Firebase – REEMPLAZA estos valores con los de tu proyecto
 const firebaseConfig = {
-    apiKey: "AIzaSyD5AzdqX-y7RLIpInc-Rqh12eCdbkyUHK4",
-    authDomain: "asistencia-jm-asociados.firebaseapp.com",
-    projectId: "asistencia-jm-asociados",
-    storageBucket: "asistencia-jm-asociados.firebasestorage.app",
-    messagingSenderId: "167727595796",
-    appId: "1:167727595796:web:21ef39c8e9986a7ecf8201",
-    measurementId: "G-2J5SJF1L2S"
+    apiKey: "AIzaSyAs-z5tO-ucNX88eV9Br9gz1IbzXtf3BO0",
+    authDomain: "hbbc-2c1e3.firebaseapp.com",
+    projectId: "hbbc-2c1e3",
+    storageBucket: "hbbc-2c1e3.firebasestorage.app",
+    messagingSenderId: "100384061519",
+    appId: "1:100384061519:web:4a1c53747b6cad1561d23a",
+    measurementId: "G-HRBRQ69V79"
 };
 
 // Inicializa Firebase

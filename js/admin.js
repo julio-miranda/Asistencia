@@ -263,7 +263,7 @@ function verPerfil() {
         document.getElementById("email").value = data.email || "";
         document.getElementById("identificacion").value = data.identificacion || "";
         document.getElementById("nacimiento").value = data.nacimiento || "";
-        document.getElementById("empleado-salario").value = data.salarioH || "";
+        document.getElementById("empleado-salariop").value = parseFloat(data.salarioH) || "";
         document.getElementById("descripcionp").value = data.descripcion || "";
         document.getElementById("perfil-container").style.display = "block";
         document.getElementById("tabla-empleados").style.display = "none";
@@ -293,7 +293,7 @@ document.getElementById("perfil-form").addEventListener("submit", async (e) => {
   const nuevaDescripcion = document.getElementById("descripcionp").value;
   const cambiarContrasena = document.getElementById("cambiar-contrasena").checked;
   const nuevaContrasena = document.getElementById("nueva-contrasena").value;
-  const salarioH = document.getElementById("empleado-salario").value;
+  const salarioH = document.getElementById("empleado-salariop").value;
   try {
     const updateData = {
       nombre: nuevoNombre,
