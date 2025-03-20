@@ -94,10 +94,9 @@ function onScanSuccess(decodedText, decodedResult) {
     }
     const uid = sessionData.uid;
     const usuarioDoc = db.collection("usuarios").doc(uid).get().data();
-    alert("empresa."+sessionData.empresa);
-    alert("QR incorrecto. Intenta nuevamente."+sessionData.empresa);
+    alert("empresa."+usuarioDoc.empresa);
     if (decodedText !== `${usuarioDoc.empresa}`) {
-        alert("QR incorrecto. Intenta nuevamente."+sessionData.empresa);
+        alert("QR incorrecto. Intenta nuevamente."+usuarioDoc.empresa);
         return;
     }
 
