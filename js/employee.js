@@ -66,8 +66,8 @@ function checkLocation(successCallback, errorCallback) {
 
 // Verifica que el usuario tenga una sesión válida y rol "empleado"
 checkUserSession(function (uid) {
-    db.collection("usuarios").doc(uid).get().then(doc => {
-        if (!doc.exists || doc.data().role !== "empleado") {
+    db.collection("usuarios").doc(uid).get().then(docSnapshot => {
+        if (!docSnapshot.exists || docSnapshot.data().role !== "empleado") {
             alert("No tienes permisos para acceder a este módulo.");
             window.location.href = "index.html";
             return;
@@ -82,34 +82,45 @@ checkUserSession(function (uid) {
 // Bandera para evitar múltiples procesamientos
 let scanProcesado = false;
 
-// Función que se ejecuta cuando se detecta un código QR correctamente
-function onScanSuccess(decodedText, decodedResult) {
+// Función asíncrona que se ejecuta cuando se detecta un código QR correctamente
+async function onScanSuccess(decodedText, decodedResult) {
     if (scanProcesado) return;
 
     const sessionData = getSessionData();
     if (!sessionData) {
         alert("No se encontró información de la sesión. Por favor, inicia sesión de nuevo.");
-        scanProcesado = false;
         return;
     }
     const uid = sessionData.uid;
-    const usuarioDoc = db.collection("usuarios").doc(uid).get().data();
-    alert("empresa."+usuarioDoc.empresa);
-    if (decodedText !== `${usuarioDoc.empresa}`) {
-        alert("QR incorrecto. Intenta nuevamente."+usuarioDoc.empresa);
-        return;
+    
+    try {
+        // Obtener datos del usuario de forma asíncrona
+        const usuarioSnapshot = await db.collection("usuarios").doc(uid).get();
+        if (!usuarioSnapshot.exists) {
+            alert("Usuario no encontrado.");
+            return;
+        }
+        const usuarioData = usuarioSnapshot.data();
+        
+        // Validar que el QR corresponda a la empresa asignada al usuario
+        if (decodedText !== `${usuarioData.empresa}`) {
+            alert("QR incorrecto. Intenta nuevamente.");
+            return;
+        }
+
+        scanProcesado = true;
+        // Se limpia el escáner y se llama a registrarAsistencia
+        html5QrcodeScanner.clear().then(() => {
+            registrarAsistencia();
+        }).catch((error) => {
+            console.error("Error al detener el escáner", error);
+            alert("Error al detener el escáner. Intenta nuevamente.");
+            scanProcesado = false;
+        });
+    } catch (error) {
+        console.error("Error al procesar el usuario:", error);
+        alert("Error al procesar los datos del usuario.");
     }
-
-    scanProcesado = true;
-
-    // Se limpia el escáner y se llama a registrarAsistencia
-    html5QrcodeScanner.clear().then(() => {
-        registrarAsistencia();
-    }).catch((error) => {
-        console.error("Error al detener el escáner", error);
-        alert("Error al detener el escáner. Intenta nuevamente.");
-        scanProcesado = false;
-    });
 }
 
 function onScanError(errorMessage) {
@@ -159,20 +170,19 @@ async function registrarAsistencia() {
         return;
     }
     const uid = sessionData.uid;
-
     const now = new Date();
     const hour = now.getHours();
     const fechaHoy = now.toISOString().split("T")[0];
 
     try {
         // Obtener datos del usuario
-        const usuarioDoc = await db.collection("usuarios").doc(uid).get();
-        if (!usuarioDoc.exists) {
+        const usuarioSnapshot = await db.collection("usuarios").doc(uid).get();
+        if (!usuarioSnapshot.exists) {
             alert("Error: Usuario no encontrado.");
             scanProcesado = false;
             return;
         }
-        const userData = usuarioDoc.data();
+        const userData = usuarioSnapshot.data();
         empresa = userData.empresa;
         const sucursal = userData.sucursal;
 
@@ -180,7 +190,6 @@ async function registrarAsistencia() {
         const empresaRef = db.collection("empresas")
             .where("empresa", "==", empresa)
             .where("sucursal", "==", sucursal);
-
         const empresaSnapshot = await empresaRef.get();
 
         if (!empresaSnapshot.empty) {
@@ -199,10 +208,8 @@ async function registrarAsistencia() {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude
                     });
-
                     allowedLat = position.coords.latitude;
                     allowedLng = position.coords.longitude;
-
                 } catch (error) {
                     console.error("Error al obtener la ubicación:", error);
                     alert("Error al obtener la ubicación. Verifica los permisos de tu navegador.");
@@ -218,14 +225,24 @@ async function registrarAsistencia() {
 
         // Verificar ubicación antes de registrar asistencia
         checkLocation(async () => {
-            // Verificar si hay un registro de asistencia hoy
+            // Verificar si ya se registró asistencia hoy
             const asistenciaRef = db.collection("asistencias").doc(`${uid}_${fechaHoy}`);
             const asistenciaDoc = await asistenciaRef.get();
 
             if (!asistenciaDoc.exists) {
                 // Primera vez escaneando hoy -> Registrar entrada
-                // Nota: Revisar la condición según la regla de negocio (usar "hour > 8" si a las 8 se considera a tiempo)
+                // Ajusta la condición según la regla de negocio (por ejemplo, si a las 8 se considera a tiempo, usar hour > 8)
                 let status = hour >= 8 ? "Tarde" : "A tiempo";
+                const asistenciaData = {
+                    userId: uid,
+                    user: userData.nombre,
+                    empresa: empresa,
+                    sucursal: sucursal,
+                    fecha: fechaHoy,
+                    entrada: now.toLocaleTimeString(),
+                    salida: null,
+                    status: status
+                };
 
                 if (status === "Tarde") {
                     // Solicitar justificación en caso de tardanza
@@ -235,37 +252,18 @@ async function registrarAsistencia() {
                         scanProcesado = false;
                         return;
                     }
-                    await asistenciaRef.set({
-                        userId: uid,
-                        user: userData.nombre,
-                        empresa: empresa,
-                        sucursal: sucursal,
-                        fecha: fechaHoy,
-                        entrada: now.toLocaleTimeString(),
-                        salida: null,
-                        status: status,
-                        justificacion: justification
-                    });
-                } else {
-                    await asistenciaRef.set({
-                        userId: uid,
-                        user: userData.nombre,
-                        empresa: empresa,
-                        sucursal: sucursal,
-                        fecha: fechaHoy,
-                        entrada: now.toLocaleTimeString(),
-                        salida: null,
-                        status: status
-                    });
+                    asistenciaData.justificacion = justification;
                 }
+                await asistenciaRef.set(asistenciaData);
                 alert(`Entrada registrada a las ${now.toLocaleTimeString()} (${status}).`);
-                scanProcesado = false;
-            } else {
-                // Segunda vez escaneando hoy -> Registrar salida
+            } else if (!asistenciaDoc.data().salida) {
+                // Si ya se registró la entrada pero no la salida
                 await asistenciaRef.update({
                     salida: now.toLocaleTimeString()
                 });
                 alert(`Salida registrada a las ${now.toLocaleTimeString()}.`);
+            } else {
+                alert("Ya registraste entrada y salida para el día de hoy.");
             }
             // Reiniciar bandera para permitir nuevos escaneos
             scanProcesado = false;
