@@ -85,7 +85,14 @@ let scanProcesado = false;
 function onScanSuccess(decodedText, decodedResult) {
     if (scanProcesado) return;
 
-    if (decodedText !== "J.M Asociados") {
+    const sessionData = getSessionData();
+    if (!sessionData) {
+        alert("No se encontró información de la sesión. Por favor, inicia sesión de nuevo.");
+        scanProcesado = false;
+        return;
+    }
+    
+    if (decodedText !== `${sessionData.empresa}`) {
         alert("QR incorrecto. Intenta nuevamente.");
         return;
     }
