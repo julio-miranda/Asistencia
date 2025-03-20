@@ -93,7 +93,7 @@ function onScanSuccess(decodedText, decodedResult) {
     }
     
     if (decodedText !== `${sessionData.empresa}`) {
-        alert("QR incorrecto. Intenta nuevamente.");
+        alert("QR incorrecto. Intenta nuevamente."+sessionData.empresa);
         return;
     }
 
