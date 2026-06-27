@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Planilla Semanal</title>
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/datatables.net-dt@1.13.6/css/jquery.dataTables.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+</head>
+
+<body>
+    <nav>
+        <div id="navbar-links">
+            <ul id="menu">
+                <li><a href="empleados.html">Empleados</a></li>
+                <li><a href="asistencias.html">Asistencias</a></li>
+                <li><a href="jornadas.html">Jornadas</a></li>
+                <li><a href="perfil.html">Ver Mi Perfil</a></li>
+                <li><a href="planilla.html">Planilla Semanal</a></li>
+                <li>
+                    <button id="btnDescargarQr" type="button">Generar QR Empresa</button>
+                    <div id="qr-container" style="margin-top:10px;"></div>
+                </li>
+                <li><button id="logout-button" type="button">Cerrar Sesión</button></li>
+            </ul>
+        </div>
+        <button id="menu-toggle" class="hamburger" type="button">&#9776;</button>
+    </nav>
+
+    <div id="planilla-container" class="planilla-container">
+        <h2>Planilla Semanal</h2>
+
+        <div id="filtro-fechas" style="margin-bottom: 1rem;">
+            <label for="fechaInicio">Inicio de Semana:</label>
+            <input type="date" id="fechaInicio" value="">
+            <br>
+            <label for="fechaFin">Fin de Semana:</label>
+            <input type="date" id="fechaFin" value="">
+            <br>
+            <label>
+                <input type="checkbox" id="aplicar-nocturno" />
+                Aplicar recargo 50% horas nocturnas
+            </label>
+        </div>
+
+        <button id="filtrar" type="button" style="background-color: black;">Filtrar</button>
+        <button id="btn-imprimir-planilla" type="button" class="imprimir-btn">Imprimir Planilla</button>
+        <button id="btn-descargar-excel" type="button">Descargar Excel</button>
+
+        <div class="table-responsive">
+            <table id="planillaTable" class="display nowrap" style="width:100%; margin-top:20px;">
+                <thead>
+                    <tr>
+                        <th>Empleado</th>
+                        <th>Horas Normales</th>
+                        <th>Horas Extras</th>
+                        <th>Total Horas</th>
+                        <th>Total Bruto</th>
+                        <th>ISSS</th>
+                        <th>AFP</th>
+                        <th>Total Neto</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.2.0/bcrypt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/3.0.5/js.cookie.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/datatables.net@1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <script src="js/firebase-config.js"></script>
+    <script type="module" src="js/services/session.service.js"></script>
+    <script type="module" src="js/admin.js"></script>
+    <script type="module" src="js/controllers/admin.planilla.controller.js"></script>
+</body>
+</html>

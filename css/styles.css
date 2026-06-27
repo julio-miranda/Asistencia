@@ -26,12 +26,22 @@ form {
 }
 
 input,
-select {
+select,
+#register-Fecha{
   margin: 10px 0;
   padding: 10px;
   font-size: 1rem;
   border: 1px solid #ccc;
   border-radius: 3px;
+}
+
+select{
+  width: 100%;
+}
+
+#manual-sucursal-container input,
+#manual-empresa-container input{
+width: 95%;
 }
 
 button {

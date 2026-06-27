@@ -5,24 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login - Control de Asistencia</title>
   <link rel="stylesheet" href="css/styles.css">
-  <!-- Firebase -->
+
+  <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <!-- Configuración y funciones comunes -->
+
+  <!-- Librerías necesarias -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.2.0/bcrypt.min.js"></script>
+
+  <!-- Config Firebase -->
   <script src="js/firebase-config.js"></script>
-  <script src="js/auth.js"></script>
 </head>
+
 <body>
   <div class="section">
     <h2>Iniciar Sesión</h2>
+
     <form id="login-form">
-      <input type="email" id="login-email" placeholder="Correo" required>
+      <input type="text" id="login-email" placeholder="Correo o Identificación" required>
       <input type="password" id="login-password" placeholder="Contraseña" required>
+
       <button type="submit">Ingresar</button>
+      <button type="button" id="btn-forgot-password">¿Olvidaste tu contraseña?</button>
     </form>
-    <p>¿No tienes cuenta? <a href="#" id="go-to-register">Regístrate aquí</a></p>
   </div>
-  <script src="js/login.js"></script>
+
+  <script type="module" src="js/controllers/login.controller.js"></script>
 </body>
 </html>

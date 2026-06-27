@@ -127,7 +127,10 @@ th {
     margin: 10px 0 5px;
 }
 
+#filtro-fechas input,
+#filtro-fechasa input,
 .form-container input,
+.form-container select,
 .form-container textarea {
     padding: 8px;
     margin-bottom: 15px;
@@ -135,8 +138,26 @@ th {
     border-radius: 4px;
 }
 
-#nueva-contrasena-container input {
-    width: 99%;
+/* Estilos para secciones de contraseña */
+/* Sección para ingresar contraseña al agregar empleado */
+#seccion-contraseña {
+    margin-bottom: 15px;
+}
+
+/* Sección para cambiar contraseña al editar empleado */
+#cambiar-contrasena-empleado-container {
+    margin-bottom: 15px;
+}
+
+/* Estilos para los campos de nueva contraseña */
+#nueva-contrasena-container,
+#nueva-contrasena-empleado-container {
+    margin-top: 5px;
+}
+
+#nueva-contrasena-container input,
+#nueva-contrasena-empleado-container input {
+    width: 100%;
 }
 
 /* Botón de menú hamburguesa */
@@ -154,7 +175,6 @@ th {
     nav {
         display: flex;
         align-items: center;
-        /* Centra verticalmente los elementos */
     }
 
     nav ul {
@@ -177,7 +197,6 @@ th {
         position: fixed;
         top: 80px;
         left: 0;
-        width: 100%;
         padding: 10px 0;
         border-radius: 0 0 10px 10px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -231,7 +250,6 @@ th {
 
     #menu-toggle {
         margin-left: auto;
-        /* Empuja el botón hasta el final (derecha) */
     }
 
     #menu-toggle {
