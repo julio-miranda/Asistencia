@@ -69,6 +69,7 @@ Thumbs.db
 # Descomenta si cada dev usa su propio proyecto Firebase
 .firebaserc
 *.json
+firebase-config.js
 
 # =========================
 # LO QUE SÍ SE SUBE (NO IGNORAR)
