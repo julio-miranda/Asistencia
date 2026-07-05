@@ -1,5 +1,5 @@
 import EmployeeModel from "../models/employee.model.js";
-import { checkUserSession, logout } from "../services/session.service.js";
+import { getSessionData, logout } from "../services/session.service.js";
 
 const allowedRadius = 50;
 const SCAN_DUPLICATE_WINDOW_MS = 3000;
@@ -36,10 +36,14 @@ function mostrarQrResultado(msg) {
   console.log("qr-result:", msg);
 }
 
-function redirigirLogin() {
-  logout({ redirect: true }).catch(() => {
-    window.location.href = "index.html";
-  });
+async function redirigirLogin() {
+  try {
+    await logout({ redirect: false });
+  } catch (e) {
+    console.warn("Error cerrando sesión:", e);
+  } finally {
+    window.location.replace("index.html");
+  }
 }
 
 function cerrarSesionPorError(mensaje) {
@@ -47,6 +51,7 @@ function cerrarSesionPorError(mensaje) {
     mostrarMensajeGeneral(mensaje);
     console.warn(mensaje);
   }
+
   redirigirLogin();
 }
 
@@ -66,7 +71,7 @@ function extraerTextoQr(decodedText) {
 
   try {
     texto = decodeURIComponent(texto);
-  } catch (_) {}
+  } catch (_) { }
 
   texto = texto.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
 
@@ -79,8 +84,9 @@ function extraerTextoQr(decodedText) {
         url.searchParams.get("q") ||
         url.pathname.split("/").filter(Boolean).pop();
 
+
       if (empresa) return empresa.trim();
-    } catch (_) {}
+    } catch (_) { }
   }
 
   return texto;
@@ -93,9 +99,9 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
   const Δφ = (lat2 - lat1) * Math.PI / 180;
   const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+  const a = Math.sin(Δφ / 2) ** 2 +
     Math.cos(φ1) * Math.cos(φ2) *
-    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.sin(Δλ / 2) ** 2;
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
@@ -114,10 +120,63 @@ function getCurrentPositionPromise(options = {}) {
       return;
     }
 
+
     navigator.geolocation.getCurrentPosition(resolve, reject, {
       ...defaultOptions,
       ...options
     });
+
+
+  });
+}
+
+function normalizeArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map(v => String(v || "").trim()).filter(Boolean);
+}
+
+function resolveJornadasFromData(data) {
+  const jornadas = normalizeArray(data?.jornadas);
+  if (jornadas.length > 0) return jornadas;
+
+  const jornadaUnica = String(data?.jornada || data?.jornadaId || "").trim();
+  if (jornadaUnica) return [jornadaUnica];
+
+  return [];
+}
+
+async function waitForFirebaseUser(timeoutMs = 12000) {
+  const auth = window.firebase?.auth ? window.firebase.auth() : null;
+  if (!auth) return null;
+
+  if (auth.currentUser) {
+    return auth.currentUser;
+  }
+
+  return await new Promise((resolve, reject) => {
+    let done = false;
+
+
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(new Error("Timeout esperando a Firebase Auth."));
+    }, timeoutMs);
+
+    try {
+      const unsubscribe = auth.onAuthStateChanged((user) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (typeof unsubscribe === "function") unsubscribe();
+        resolve(user || null);
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      reject(e);
+    }
+
+
   });
 }
 
@@ -125,15 +184,16 @@ async function obtenerSesionUid() {
   try {
     if (currentEmployeeUid) return currentEmployeeUid;
 
-    if (typeof window.getSessionData === "function") {
-      const sessionData = await window.getSessionData();
-      if (sessionData && sessionData.uid) return sessionData.uid;
-    }
+
+    const sessionData = await getSessionData().catch(() => null);
+    if (sessionData?.uid) return String(sessionData.uid).trim();
 
     const auth = window.firebase?.auth ? window.firebase.auth() : null;
     if (auth?.currentUser?.uid) {
-      return auth.currentUser.uid;
+      return String(auth.currentUser.uid).trim();
     }
+
+
   } catch (e) {
     console.warn("Error leyendo sesión:", e);
   }
@@ -141,31 +201,84 @@ async function obtenerSesionUid() {
   return null;
 }
 
-async function obtenerUsuarioEmpleadoActual() {
+async function obtenerUsuarioEmpleadoActual(forceReload = false) {
   const uid = currentEmployeeUid || await obtenerSesionUid();
   if (!uid) return null;
 
   currentEmployeeUid = uid;
 
-  if (currentEmployeeData && currentEmployeeData.authUid === uid) {
+  const cacheTieneJornadas = resolveJornadasFromData(currentEmployeeData).length > 0;
+  if (!forceReload && currentEmployeeData && String(currentEmployeeData.authUid || "").trim() === uid && cacheTieneJornadas) {
     return {
-      id: currentEmployeeDocId || null,
-      ...currentEmployeeData
+      id: currentEmployeeDocId || currentEmployeeData.docId || uid,
+      ...currentEmployeeData,
+      jornadas: resolveJornadasFromData(currentEmployeeData)
     };
   }
 
   try {
-    const doc = await model.getUserByAuthUid(uid);
+    const sessionData = await getSessionData().catch(() => null);
+
+
+    const auth = window.firebase?.auth ? window.firebase.auth() : null;
+    const currentUser = auth?.currentUser || null;
+
+    let doc = await model.getUserByAuthUid(uid);
+
+    if (!doc && sessionData?.email) {
+      doc = await model.getUserByEmail(sessionData.email);
+    }
+
+    if (!doc && currentUser?.email) {
+      doc = await model.getUserByEmail(currentUser.email);
+    }
+
+    if (!doc) {
+      const fallbackProfile = {
+        authUid: uid,
+        role: sessionData?.role || "empleado",
+        empresa: sessionData?.empresa || "",
+        sucursal: sessionData?.sucursal || "",
+        jornadas: sessionData?.jornadas || [],
+        jornada: sessionData?.jornada || sessionData?.jornadaId || "",
+        email: sessionData?.email || currentUser?.email || "",
+        nombre: sessionData?.nombre || currentUser?.displayName || "",
+        blocked: false,
+        activo: true,
+        docId: uid
+      };
+
+      try {
+        const ensured = await model.ensureUserByAuthUid(uid, fallbackProfile);
+        if (ensured && ensured.exists) {
+          currentEmployeeDocId = ensured.id || uid;
+          currentEmployeeData = ensured.data() || {};
+          return {
+            id: currentEmployeeDocId,
+            ...currentEmployeeData,
+            jornadas: resolveJornadasFromData(currentEmployeeData)
+          };
+        }
+      } catch (mErr) {
+        console.warn("No se pudo autoprovisionar el perfil del usuario:", mErr);
+      }
+
+      doc = await model.getUserByAuthUid(uid);
+    }
+
     if (doc && doc.exists) {
       currentEmployeeDocId = doc.id;
       currentEmployeeData = doc.data() || {};
       return {
         id: doc.id,
-        ...currentEmployeeData
+        ...currentEmployeeData,
+        jornadas: resolveJornadasFromData(currentEmployeeData)
       };
     }
 
     return null;
+
+
   } catch (e) {
     console.error("Error buscando usuario actual:", e);
     return null;
@@ -192,6 +305,7 @@ function checkLocation(successCallback, errorCallback) {
       const accuracy = position.coords.accuracy;
       console.log(`Precisión GPS: ${accuracy}m`);
 
+
       if (accuracy > 50) {
         alert(`La señal GPS no es lo suficientemente precisa (${accuracy.toFixed(1)} m). Intenta nuevamente en un lugar abierto.`);
         errorCallback && errorCallback();
@@ -214,6 +328,8 @@ function checkLocation(successCallback, errorCallback) {
       errorCallback && errorCallback();
     },
     { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+
+
   );
 }
 
@@ -222,6 +338,7 @@ function showJustificationModal() {
     const modal = document.getElementById("justificationModal");
     const textarea = document.getElementById("justificationText");
     const saveButton = document.getElementById("saveJustificationButton");
+
 
     if (!modal || !textarea || !saveButton) {
       const fallback = prompt("Ingrese la justificación de su llegada tarde:");
@@ -240,6 +357,8 @@ function showJustificationModal() {
     };
 
     saveButton.addEventListener("click", handler);
+
+
   });
 }
 
@@ -265,6 +384,7 @@ async function tryRenderScannerIfNeeded() {
       alert("No se cargó la librería del lector QR.");
       return;
     }
+
 
     if (scannerActivo) return;
 
@@ -301,6 +421,8 @@ async function tryRenderScannerIfNeeded() {
     html5QrcodeScanner = new Html5QrcodeScanner("reader", config, false);
     scannerActivo = true;
     html5QrcodeScanner.render(onScanSuccess, onScanError);
+
+
   } catch (err) {
     scannerActivo = false;
     console.error("Error iniciando scanner:", err);
@@ -341,12 +463,13 @@ async function onScanSuccess(decodedText) {
   scanProcesado = true;
 
   try {
-    const userData = await obtenerUsuarioEmpleadoActual();
+    const userData = await obtenerUsuarioEmpleadoActual(true);
     if (!userData) {
       alert("Error: Usuario no encontrado.");
       scanProcesado = false;
       return;
     }
+
 
     const empresa = userData.empresa || "";
     const qrEmpresa = normalizarTexto(rawText);
@@ -364,6 +487,8 @@ async function onScanSuccess(decodedText) {
 
     await stopScanner();
     await registrarAsistencia();
+
+
   } catch (err) {
     console.error("Error al procesar QR:", err);
     alert("Error al procesar el QR. Intenta nuevamente.");
@@ -387,18 +512,27 @@ async function registrarAsistencia() {
   const fechaHoy = now.toISOString().split("T")[0];
 
   try {
-    const userData = await obtenerUsuarioEmpleadoActual();
+    const userData = await obtenerUsuarioEmpleadoActual(true);
+
 
     if (!userData) {
       cerrarSesionPorError("Usuario no encontrado. Se cerrará la sesión.");
       return;
     }
 
-    const jornadas = Array.isArray(userData.jornadas) ? userData.jornadas : [];
+    let jornadas = resolveJornadasFromData(userData);
 
     if (jornadas.length === 0) {
-      cerrarSesionPorError("No tienes jornadas asignadas. Contacta con el administrador.");
-      return;
+      const refreshed = await obtenerUsuarioEmpleadoActual(true);
+      const jornadasRefrescadas = resolveJornadasFromData(refreshed);
+
+      if (jornadasRefrescadas.length === 0) {
+        cerrarSesionPorError("No tienes jornadas asignadas. Contacta con el administrador. Se cerrará la sesión.");
+        return;
+      }
+
+      userData.jornadas = jornadasRefrescadas;
+      jornadas = jornadasRefrescadas;
     }
 
     if (jornadas.length === 1) {
@@ -428,6 +562,11 @@ async function registrarAsistencia() {
       select.appendChild(opt);
     });
 
+    if (!select.options.length) {
+      cerrarSesionPorError("No se pudieron cargar tus jornadas. Contacta con el administrador.");
+      return;
+    }
+
     select.style.display = "";
     btnConfirmar.style.display = "";
 
@@ -440,6 +579,8 @@ async function registrarAsistencia() {
     };
 
     btnConfirmar.addEventListener("click", handler);
+
+
   } catch (err) {
     console.error("Error registrarAsistencia:", err);
     alert(`Error al registrar asistencia: ${err.message || err}`);
@@ -449,6 +590,7 @@ async function registrarAsistencia() {
 async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
   try {
     const jornadaDoc = await model.getJornadaById(jornadaId);
+
 
     if (!jornadaDoc || !jornadaDoc.exists) {
       alert("Error: Jornada no encontrada.");
@@ -530,6 +672,7 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
       setTimeout(() => tryRenderScannerIfNeeded(), 1200);
     });
 
+
   } catch (err) {
     console.error("Error en procesarJornada:", err);
     alert(`Error al procesar jornada: ${err.message || err}`);
@@ -553,36 +696,44 @@ async function initEmployeeModule() {
   initUI();
 
   try {
-    const session = await checkUserSession(async (uid, userData, docId) => {
-      currentEmployeeUid = uid || null;
-      currentEmployeeDocId = docId || null;
-      currentEmployeeData = userData || null;
+    const authUser = await waitForFirebaseUser().catch(() => null);
+    const userDataFinal = await obtenerUsuarioEmpleadoActual(true);
 
-      const userDataFinal = await obtenerUsuarioEmpleadoActual();
 
-      if (!userDataFinal) {
-        cerrarSesionPorError("Usuario no encontrado. Se cerrará la sesión.");
-        return;
-      }
+    if (!authUser && !userDataFinal) {
+      cerrarSesionPorError("No se pudo validar la sesión.");
+      return;
+    }
 
-      if (userDataFinal.role !== "empleado") {
-        cerrarSesionPorError("No tienes permisos para acceder a este módulo. Se cerrará la sesión.");
-        return;
-      }
+    if (!userDataFinal) {
+      cerrarSesionPorError("No se pudo validar la sesión.");
+      return;
+    }
 
-      const jornadas = Array.isArray(userDataFinal.jornadas) ? userDataFinal.jornadas : [];
+    currentEmployeeUid = String(userDataFinal.authUid || currentEmployeeUid || authUser?.uid || "").trim() || null;
+    currentEmployeeDocId = String(userDataFinal.docId || userDataFinal.id || currentEmployeeDocId || "").trim() || null;
+    currentEmployeeData = userDataFinal;
 
-      if (jornadas.length === 0) {
+    if (String(userDataFinal.role || "").trim() !== "empleado") {
+      cerrarSesionPorError("No tienes permisos para acceder a este módulo. Se cerrará la sesión.");
+      return;
+    }
+
+    const jornadas = resolveJornadasFromData(userDataFinal);
+
+    if (jornadas.length === 0) {
+      const refreshed = await obtenerUsuarioEmpleadoActual(true);
+      const jornadasRefrescadas = resolveJornadasFromData(refreshed);
+
+      if (jornadasRefrescadas.length === 0) {
         cerrarSesionPorError("No tienes jornadas asignadas. Contacta con el administrador. Se cerrará la sesión.");
         return;
       }
-
-      tryRenderScannerIfNeeded();
-    });
-
-    if (!session) {
-      cerrarSesionPorError("No se pudo validar la sesión.");
     }
+
+    tryRenderScannerIfNeeded();
+
+
   } catch (err) {
     console.error("Error al inicializar el módulo empleado:", err);
     cerrarSesionPorError("Error al inicializar el módulo empleado.");

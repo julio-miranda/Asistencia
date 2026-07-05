@@ -1,5 +1,9 @@
+<!-- login.html -->
+
 <!DOCTYPE html>
+
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,31 +11,43 @@
   <link rel="stylesheet" href="css/styles.css">
 
   <!-- Firebase compat -->
+
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
   <!-- Librerías necesarias -->
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.2.0/bcrypt.min.js"></script>
 
   <!-- Config Firebase -->
+
   <script src="js/firebase-config.js"></script>
+
 </head>
 
 <body>
   <div class="section">
     <h2>Iniciar Sesión</h2>
 
+
     <form id="login-form">
-      <input type="text" id="login-email" placeholder="Correo o Identificación" required>
-      <input type="password" id="login-password" placeholder="Contraseña" required>
+      <input type="email" id="login-email" placeholder="Correo electrónico" autocomplete="username" required>
+      <input type="password" id="login-password" placeholder="Contraseña" autocomplete="current-password" required>
 
       <button type="submit">Ingresar</button>
       <button type="button" id="btn-forgot-password">¿Olvidaste tu contraseña?</button>
     </form>
+
+
   </div>
 
   <script type="module" src="js/controllers/login.controller.js"></script>
+
 </body>
+
 </html>

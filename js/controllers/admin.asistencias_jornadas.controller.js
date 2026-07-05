@@ -1,7 +1,9 @@
+/* js/controllers/admin.asistencias_jornadas.controller.js */
 import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.model.js";
 
 (function () {
     "use strict";
+
 
     const db = window.db;
     if (!db) {
@@ -13,16 +15,28 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
 
     let currentEditingJornadaId = null;
 
-    function esperarAdminListo() {
-        return new Promise(resolve => {
-            function check() {
-                if (typeof window.whenAdminReady === "function") {
-                    window.whenAdminReady().then(resolve);
-                } else {
-                    setTimeout(check, 50);
-                }
+    async function waitForAdminReady() {
+        if (typeof window.whenAdminReady === "function") {
+            try {
+                return await window.whenAdminReady();
+            } catch (e) {
+                return null;
             }
-            check();
+        }
+
+        return await new Promise(resolve => {
+            const timer = setTimeout(() => resolve(null), 12000);
+
+            const probe = () => {
+                if (window.adminSessionUserData || window.adminEmpresa || window.adminSucursal) {
+                    clearTimeout(timer);
+                    resolve(window.adminSessionUserData || null);
+                    return;
+                }
+                setTimeout(probe, 50);
+            };
+
+            probe();
         });
     }
 
@@ -90,11 +104,59 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             .replace(/'/g, "&#39;");
     }
 
+    function getSessionContext() {
+        const s = window.adminSessionUserData || {};
+
+        return {
+            role: String(s.role || "").trim(),
+            empresa: String(s.empresa || "").trim(),
+            sucursal: String(s.sucursal || "").trim(),
+            sessionData: s
+        };
+    }
+
+    function hasAdminContext(ctx) {
+        return !!(ctx && ctx.role === "admin" && ctx.empresa && ctx.sucursal);
+    }
+
+    async function ensureAdminContext(operation = "continuar") {
+        await waitForAdminReady();
+
+        const sessionContext = getSessionContext();
+        if (!hasAdminContext(sessionContext)) {
+            console.warn(`Contexto administrativo incompleto para ${operation}:`, {
+                sessionContext,
+                adminSessionUserData: window.adminSessionUserData || null
+            });
+            return null;
+        }
+
+        window.adminEmpresa = sessionContext.empresa;
+        window.adminSucursal = sessionContext.sucursal;
+
+        return sessionContext;
+    }
+
+    async function refreshSessionIfPossible() {
+        if (typeof window.refreshSession === "function") {
+            try {
+                await window.refreshSession();
+            } catch (e) {
+                console.warn("No se pudo refrescar la sesión local:", e);
+            }
+        }
+    }
+
+    async function recheckContext(operation) {
+        await refreshSessionIfPossible();
+        return await ensureAdminContext(operation);
+    }
+
     async function cargarJornadas() {
         const tableEl = document.getElementById("jornadasTable");
         if (!tableEl) return;
 
-        const ready = await esperarAdminListo();
+        const ready = await recheckContext("cargar jornadas");
         if (!ready) return;
 
         limpiarDataTable("#jornadasTable");
@@ -111,9 +173,9 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                     escapeHtml(d.horaEntrada || ""),
                     escapeHtml(d.horaSalida || ""),
                     `
-                        <button type="button" class="btn-editar-jornada" data-id="${doc.id}" style="background-color:green;">Editar</button>
-                        <button type="button" class="btn-eliminar-jornada" data-id="${doc.id}" style="background-color:red;">Eliminar</button>
-                    `
+                    <button type="button" class="btn-editar-jornada" data-id="${doc.id}" style="background-color:green;">Editar</button>
+                    <button type="button" class="btn-eliminar-jornada" data-id="${doc.id}" style="background-color:red;">Eliminar</button>
+                `
                 ]);
             });
 
@@ -131,7 +193,7 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
     }
 
     async function editarJornada(id) {
-        const ready = await esperarAdminListo();
+        const ready = await recheckContext("editar jornada");
         if (!ready) return;
 
         try {
@@ -175,7 +237,7 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         const sel = document.getElementById("empleado-jornada");
         if (!sel) return;
 
-        const ready = await esperarAdminListo();
+        const ready = await recheckContext("cargar jornadas en select");
         if (!ready) return;
 
         try {
@@ -203,7 +265,7 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         const tableEl = document.getElementById("asistenciasTable");
         if (!tableEl) return;
 
-        const ready = await esperarAdminListo();
+        const ready = await recheckContext("cargar asistencias");
         if (!ready) return;
 
         limpiarDataTable("#asistenciasTable");
@@ -241,8 +303,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                 const [hSalRef, mSalRef] = String(jornada.horaSalida || "00:00").split(":").map(Number);
 
                 let acciones = `
-                    <button type="button" class="btn-eliminar-asistencia" data-id="${doc.id}" style="background-color:red;">Eliminar</button>
-                `;
+                <button type="button" class="btn-eliminar-asistencia" data-id="${doc.id}" style="background-color:red;">Eliminar</button>
+            `;
 
                 if (d.entrada && !d.consentidaEntrada) {
                     const [h, m] = String(d.entrada).split(":").map(Number);
@@ -355,6 +417,9 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         form.addEventListener("submit", async e => {
             e.preventDefault();
 
+            const ready = await recheckContext("guardar jornada");
+            if (!ready) return;
+
             try {
                 const nombreEl = document.getElementById("jornada-nombre");
                 const entradaEl = document.getElementById("jornada-hora-entrada");
@@ -465,7 +530,7 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         bindFiltroAsistencias();
         bindTableEvents();
 
-        const ready = await esperarAdminListo();
+        const ready = await waitForAdminReady();
         if (!ready) return;
 
         const semana = getWeekRange();
@@ -499,4 +564,18 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
     window.consentirSinSalida = consentirSinSalida;
 
     document.addEventListener("DOMContentLoaded", initPage);
+
+    window.addEventListener("auth:session-updated", () => {
+        if (document.getElementById("jornadasTable")) {
+            cargarJornadas().catch(() => { });
+        }
+        if (document.getElementById("asistenciasTable")) {
+            const semana = getWeekRange();
+            cargarAsistencias(semana.inicio, semana.fin).catch(() => { });
+        }
+        if (document.getElementById("empleado-jornada")) {
+            cargarJornadasEnSelect([]).catch(() => { });
+        }
+    });
+
 })();

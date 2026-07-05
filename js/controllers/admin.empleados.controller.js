@@ -1,3 +1,4 @@
+/* js/controllers/admin.empleados.controller.js */
 import EmpleadosModel from "../models/empleados.model.js";
 
 (function () {
@@ -82,6 +83,7 @@ import EmpleadosModel from "../models/empleados.model.js";
         const current = document.getElementById("empleado-identificacionNombre");
         if (!current) return null;
 
+
         if (current.tagName && current.tagName.toLowerCase() === "select") {
             current.required = true;
             return current;
@@ -115,11 +117,14 @@ import EmpleadosModel from "../models/empleados.model.js";
         }
 
         return select;
+
+
     }
 
     function obtenerSemanaActual() {
         const hoy = new Date();
         const d = hoy.getDay() || 7;
+
 
         const inicio = new Date(hoy);
         inicio.setDate(hoy.getDate() - d + 1);
@@ -131,6 +136,8 @@ import EmpleadosModel from "../models/empleados.model.js";
             inicio: inicio.toISOString().split("T")[0],
             fin: fin.toISOString().split("T")[0]
         };
+
+
     }
 
     async function hashPasswordSafe(pass) {
@@ -148,12 +155,15 @@ import EmpleadosModel from "../models/empleados.model.js";
         setVisible("cambiar-contrasena-empleado-container", false);
         setVisible("nueva-contrasena-empleado-container", false);
 
+
         const chk = document.getElementById("cambiar-contrasena-empleado");
         if (chk) chk.checked = false;
 
         setRequired("register-password", true);
         setRequired("register-password2", true);
         setRequired("nueva-contrasena-empleado", false);
+
+
     }
 
     function resetPasswordFieldsForEdit() {
@@ -161,17 +171,21 @@ import EmpleadosModel from "../models/empleados.model.js";
         setVisible("cambiar-contrasena-empleado-container", true);
         setVisible("nueva-contrasena-empleado-container", false);
 
+
         const chk = document.getElementById("cambiar-contrasena-empleado");
         if (chk) chk.checked = false;
 
         setRequired("register-password", false);
         setRequired("register-password2", false);
         setRequired("nueva-contrasena-empleado", false);
+
+
     }
 
     function limpiarFormularioEmpleado() {
         const form = document.getElementById("empleado-form");
         if (form) form.reset();
+
 
         setVal("empleado-nombre", "");
         setVal("empleado-email", "");
@@ -185,95 +199,268 @@ import EmpleadosModel from "../models/empleados.model.js";
         setVal("nueva-contrasena-empleado", "");
         setVal("register-password", "");
         setVal("register-password2", "");
+
+
     }
 
     function mostrarSeccionEmpleado(modo) {
         const cont = document.getElementById("empleado-container");
         const tabla = document.getElementById("tabla-empleados");
 
+
         if (cont) cont.style.display = "block";
         if (tabla) tabla.style.display = "none";
 
         const titulo = document.getElementById("titulo-form-empleado");
         if (titulo) titulo.textContent = modo === "edit" ? "Editar Empleado" : "Agregar Empleado";
+
+
     }
 
     function ocultarSeccionEmpleado() {
         const cont = document.getElementById("empleado-container");
         const tabla = document.getElementById("tabla-empleados");
 
+
         if (cont) cont.style.display = "none";
         if (tabla) tabla.style.display = "block";
+
+
+    }
+
+    async function getSessionContext() {
+        const fromWindow = window.adminSessionUserData || null;
+
+
+        if (fromWindow && (fromWindow.role || fromWindow.empresa || fromWindow.sucursal)) {
+            return {
+                role: String(fromWindow.role || "").trim(),
+                empresa: String(fromWindow.empresa || "").trim(),
+                sucursal: String(fromWindow.sucursal || "").trim(),
+                sessionData: fromWindow
+            };
+        }
+
+        if (typeof window.getSessionData === "function") {
+            const persisted = await window.getSessionData().catch(() => null);
+            if (persisted) {
+                return {
+                    role: String(persisted.role || "").trim(),
+                    empresa: String(persisted.empresa || "").trim(),
+                    sucursal: String(persisted.sucursal || "").trim(),
+                    sessionData: persisted
+                };
+            }
+        }
+
+        return {
+            role: "",
+            empresa: "",
+            sucursal: "",
+            sessionData: fromWindow || null
+        };
+
+
+    }
+
+    function hasScopedAdminAccess(context) {
+        return !!(context && context.role === "admin" && context.empresa && context.sucursal);
+    }
+
+    function mergeAdminContext({ sessionContext }) {
+        const sessionReady = hasScopedAdminAccess(sessionContext);
+        if (!sessionReady) return null;
+
+
+        return {
+            role: sessionContext.role,
+            empresa: sessionContext.empresa,
+            sucursal: sessionContext.sucursal,
+            source: "session",
+            canQueryFirestore: true,
+            sessionData: sessionContext.sessionData || null
+        };
+
+
+    }
+
+    async function delay(ms) {
+        return await new Promise(resolve => setTimeout(resolve, Number(ms) || 0));
+    }
+
+    async function refreshSessionCookie() {
+        if (typeof window.refreshSession === "function") {
+            try {
+                await window.refreshSession();
+            } catch (e) {
+                console.warn("No se pudo refrescar la sesión local:", e);
+            }
+        }
+    }
+
+    async function ensureAdminContext(operation = "continuar") {
+        try {
+            if (typeof window.whenAdminReady === "function") {
+                await window.whenAdminReady().catch(() => null);
+            }
+        } catch (_) {
+            // noop
+        }
+
+
+        await refreshSessionCookie();
+
+        const sessionContext = await getSessionContext();
+        const resolved = mergeAdminContext({ sessionContext });
+
+        if (!resolved) {
+            console.warn(`Contexto administrativo incompleto para ${operation}:`, {
+                sessionContext,
+                adminSessionUserData: window.adminSessionUserData || null
+            });
+            return null;
+        }
+
+        window.adminResolvedContext = resolved;
+        window.adminEmpresa = resolved.empresa;
+        window.adminSucursal = resolved.sucursal;
+
+        return resolved;
+
+
+    }
+
+    async function executeWithSessionRetry(operation, context, task) {
+        try {
+            return await task(context);
+        } catch (error) {
+            if (error?.code === "permission-denied") {
+                console.warn(`${operation}: permiso denegado. Reintentando tras refrescar sesión...`);
+                await refreshSessionCookie();
+                await delay(300);
+
+
+                const refreshedContext = await ensureAdminContext(`${operation} (reintento)`);
+                if (refreshedContext) {
+                    return await task(refreshedContext);
+                }
+            }
+
+            throw error;
+        }
+
+
+    }
+
+    function normalizeScope(value) {
+        return String(value || "").trim();
+    }
+
+    function getTokenlessContextOrWarn(operation) {
+        return ensureAdminContext(operation);
     }
 
     async function cargarJornadasEnSelect(seleccionadas = []) {
         const select = document.getElementById("empleado-jornada");
         if (!select) return;
 
-        const ready = await window.whenAdminReady?.();
-        if (!ready) return;
+
+        const context = await getTokenlessContextOrWarn("cargar jornadas");
+        if (!context) {
+            select.innerHTML = "";
+            const opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = "No hay contexto admin válido";
+            opt.disabled = true;
+            select.appendChild(opt);
+            return;
+        }
 
         const selectedSet = new Set(normalizarJornadasSeleccionadas(seleccionadas));
         select.innerHTML = "";
 
         try {
-            const snap = await model.listJornadasByScope(window.adminEmpresa || "", window.adminSucursal || "");
+            await executeWithSessionRetry("cargar jornadas", context, async (ctx) => {
+                const snap = await model.listJornadasByScope(
+                    normalizeScope(ctx.empresa),
+                    normalizeScope(ctx.sucursal)
+                );
 
-            if (snap.empty) {
-                const optEmpty = document.createElement("option");
-                optEmpty.value = "";
-                optEmpty.textContent = "Sin jornadas disponibles";
-                optEmpty.disabled = true;
-                select.appendChild(optEmpty);
-                return;
-            }
-
-            snap.forEach(doc => {
-                const d = doc.data() || {};
-                const nombre = d.nombre || d.titulo || d.descripcion || `Jornada ${doc.id}`;
-
-                const opt = document.createElement("option");
-                opt.value = doc.id;
-                opt.textContent = nombre;
-
-                if (selectedSet.has(doc.id) || selectedSet.has(String(nombre).trim())) {
-                    opt.selected = true;
+                if (snap.empty) {
+                    const optEmpty = document.createElement("option");
+                    optEmpty.value = "";
+                    optEmpty.textContent = "Sin jornadas disponibles";
+                    optEmpty.disabled = true;
+                    select.appendChild(optEmpty);
+                    return;
                 }
 
-                select.appendChild(opt);
+                snap.forEach(doc => {
+                    const d = doc.data() || {};
+                    const nombre = d.nombre || d.titulo || d.descripcion || `Jornada ${doc.id}`;
+
+                    const opt = document.createElement("option");
+                    opt.value = doc.id;
+                    opt.textContent = nombre;
+
+                    if (selectedSet.has(doc.id) || selectedSet.has(String(nombre).trim())) {
+                        opt.selected = true;
+                    }
+
+                    select.appendChild(opt);
+                });
             });
         } catch (err) {
             console.error("Error cargando jornadas:", err);
-
             const optError = document.createElement("option");
             optError.value = "";
             optError.textContent = "No se pudieron cargar las jornadas";
             optError.disabled = true;
             select.appendChild(optError);
         }
+
+
     }
 
     async function cargarEmpleados() {
-        const ready = await window.whenAdminReady?.();
-        if (!ready) return;
+        const context = await getTokenlessContextOrWarn("cargar empleados");
+        if (!context) {
+            console.warn("No hay contexto administrativo válido para cargar empleados.");
+            return;
+        }
+
 
         const tableEl = document.getElementById("empleadosTable");
         if (!tableEl) return;
 
         try {
-            tableInstance = $("#empleadosTable").DataTable({
-                destroy: true,
-                scrollX: true,
-                autoWidth: false
-            });
-            tableInstance.clear();
+            if (window.$ && $.fn && $.fn.DataTable) {
+                if ($.fn.DataTable.isDataTable("#empleadosTable")) {
+                    tableInstance = $("#empleadosTable").DataTable();
+                    tableInstance.clear().destroy();
+                    tableInstance = null;
+                }
+
+                tableInstance = $("#empleadosTable").DataTable({
+                    destroy: true,
+                    scrollX: true,
+                    autoWidth: false
+                });
+                tableInstance.clear();
+            }
         } catch (e) {
             console.warn("No se pudo inicializar DataTable:", e);
             tableInstance = null;
         }
 
         try {
-            const snap = await model.listEmployeesByScope(window.adminEmpresa || "", window.adminSucursal || "");
+            const snap = await executeWithSessionRetry("cargar empleados", context, async (ctx) => {
+                return await model.listEmployeesByScope(
+                    normalizeScope(ctx.empresa),
+                    normalizeScope(ctx.sucursal)
+                );
+            });
+
             const rows = [];
 
             snap.forEach(doc => {
@@ -284,10 +471,10 @@ import EmpleadosModel from "../models/empleados.model.js";
                 if (blocked || !authUid) return;
 
                 const acciones = `
-                    <button type="button" class="btn-editar-empleado" data-id="${doc.id}" style="background-color:green;">Editar</button>
-                    <button type="button" class="btn-eliminar-empleado" data-id="${doc.id}" style="background-color:red;">Eliminar</button>
-                    <button type="button" class="btn-viajero-empleado" data-id="${doc.id}" style="background-color:blue;">Viajero</button>
-                `;
+      <button type="button" class="btn-editar-empleado" data-id="${doc.id}" style="background-color:green;">Editar</button>
+      <button type="button" class="btn-eliminar-empleado" data-id="${doc.id}" style="background-color:red;">Eliminar</button>
+      <button type="button" class="btn-viajero-empleado" data-id="${doc.id}" style="background-color:blue;">Viajero</button>
+    `;
 
                 rows.push([
                     escapeHtml(d.nombre || ""),
@@ -318,52 +505,78 @@ import EmpleadosModel from "../models/empleados.model.js";
         } catch (err) {
             console.error("Error cargando empleados:", err);
         }
+
+
     }
 
     async function agregarEmpleado() {
+        const context = await ensureAdminContext("agregar empleado");
+        if (!context) return;
+
+
         ensureIdentificacionNombreSelect();
         window.currentEditingEmployeeId = null;
         limpiarFormularioEmpleado();
         mostrarSeccionEmpleado("add");
         resetPasswordFieldsForAdd();
         await cargarJornadasEnSelect([]);
+
+
     }
 
     async function editarEmpleado(id) {
-        const ready = await window.whenAdminReady?.();
-        if (!ready) return;
+        const context = await ensureAdminContext("editar empleado");
+        if (!context) return;
+
 
         ensureIdentificacionNombreSelect();
         window.currentEditingEmployeeId = id;
 
-        const doc = await model.getEmployeeById(id);
-        if (!doc) {
-            alert("Empleado no encontrado");
-            return;
+        try {
+            const doc = await executeWithSessionRetry("leer empleado", context, async () => {
+                return await model.getEmployeeById(id);
+            });
+
+            if (!doc) {
+                alert("Empleado no encontrado");
+                return;
+            }
+
+            const data = doc.data() || {};
+
+            setVal("empleado-nombre", data.nombre);
+            setVal("empleado-email", data.email);
+            setVal("empleado-identificacionNombre", normalizarTipoIdentificacion(data.identificacionNombre));
+            setVal("empleado-identificacion", data.identificacion);
+            setVal("empleado-salario", data.salarioH);
+            setVal("empleado-nacimiento", data.nacimiento);
+            setVal("descripcion", data.descripcion || "");
+            setVal("empleado-isss", data.isss || "");
+            setVal("empleado-afp", data.afp || "");
+
+            resetPasswordFieldsForEdit();
+            await cargarJornadasEnSelect(data.jornadas || []);
+            mostrarSeccionEmpleado("edit");
+        } catch (error) {
+            console.error("Error al editar empleado:", error);
+            alert("No se pudo abrir el empleado para edición.");
         }
 
-        const data = doc.data() || {};
 
-        setVal("empleado-nombre", data.nombre);
-        setVal("empleado-email", data.email);
-        setVal("empleado-identificacionNombre", normalizarTipoIdentificacion(data.identificacionNombre));
-        setVal("empleado-identificacion", data.identificacion);
-        setVal("empleado-salario", data.salarioH);
-        setVal("empleado-nacimiento", data.nacimiento);
-        setVal("descripcion", data.descripcion || "");
-        setVal("empleado-isss", data.isss || "");
-        setVal("empleado-afp", data.afp || "");
-
-        resetPasswordFieldsForEdit();
-        await cargarJornadasEnSelect(data.jornadas || []);
-        mostrarSeccionEmpleado("edit");
     }
 
     async function eliminarEmpleado(id) {
+        const context = await ensureAdminContext("eliminar empleado");
+        if (!context) return;
+
+
         if (!confirm("¿Eliminar empleado?")) return;
 
         try {
-            const doc = await model.getEmployeeById(id);
+            const doc = await executeWithSessionRetry("leer empleado a eliminar", context, async () => {
+                return await model.getEmployeeById(id);
+            });
+
             if (!doc) {
                 alert("Empleado no encontrado");
                 return;
@@ -378,9 +591,11 @@ import EmpleadosModel from "../models/empleados.model.js";
             }
 
             if (typeof window.eliminarUsuarioCompleto === "function") {
-                await window.eliminarUsuarioCompleto(authUid, id);
+                await window.eliminarUsuarioCompleto(authUid, doc.id);
             } else {
-                throw new Error("No está disponible window.eliminarUsuarioCompleto");
+                await executeWithSessionRetry("eliminar empleado en Firestore", context, async () => {
+                    await model.deleteEmployeeFirestore(doc.id);
+                });
             }
 
             alert("Empleado eliminado correctamente");
@@ -389,21 +604,36 @@ import EmpleadosModel from "../models/empleados.model.js";
             console.error("Error eliminando empleado:", e);
             alert("Error al eliminar: " + (e.message || e));
         }
+
+
     }
 
     async function mandarViajero(id) {
+        const context = await ensureAdminContext("marcar viajero");
+        if (!context) return;
+
+
         try {
-            await model.markAsViajero(id, true);
+            await executeWithSessionRetry("marcar viajero", context, async () => {
+                await model.markAsViajero(id, true);
+            });
+
             alert("Marcado como viajero");
             await cargarEmpleados();
         } catch (e) {
             console.error("Error marcando viajero:", e);
             alert("Error marcando viajero: " + (e.message || e));
         }
+
+
     }
 
     async function guardarEmpleado(e) {
         e.preventDefault();
+
+
+        const context = await ensureAdminContext("guardar empleado");
+        if (!context) return;
 
         const nombre = getVal("empleado-nombre").trim();
         const email = getVal("empleado-email").trim();
@@ -431,6 +661,11 @@ import EmpleadosModel from "../models/empleados.model.js";
             ? Array.from(jornadaSel.selectedOptions).map(o => o.value).filter(Boolean)
             : [];
 
+        const scope = {
+            empresa: normalizeScope(context.empresa),
+            sucursal: normalizeScope(context.sucursal)
+        };
+
         const baseData = {
             nombre,
             email,
@@ -442,8 +677,8 @@ import EmpleadosModel from "../models/empleados.model.js";
             jornadas: jornadasSeleccionadas,
             isss,
             afp,
-            sucursal: window.adminSucursal || "",
-            empresa: window.adminEmpresa || "",
+            sucursal: scope.sucursal,
+            empresa: scope.empresa,
             role: "empleado",
             viajero: false
         };
@@ -451,59 +686,63 @@ import EmpleadosModel from "../models/empleados.model.js";
         try {
             if (window.currentEditingEmployeeId) {
                 const currentId = window.currentEditingEmployeeId;
-                const doc = await model.getEmployeeById(currentId);
 
-                if (!doc) {
-                    alert("Empleado no encontrado.");
-                    return;
-                }
+                await executeWithSessionRetry("actualizar empleado", context, async () => {
+                    const doc = await model.getEmployeeById(currentId);
 
-                const currentData = doc.data() || {};
-                const currentEmail = String(currentData.email || "").trim();
-                const currentIdentificacion = String(currentData.identificacion || "").trim();
-
-                const cambiarContrasena = document.getElementById("cambiar-contrasena-empleado");
-                const nuevaContrasena = getVal("nueva-contrasena-empleado").trim();
-                const authUid = String(currentData.authUid || "").trim();
-
-                const emailDuplicado = await model.existsByField("email", email, currentId);
-                if (emailDuplicado) {
-                    alert("Ya existe otro usuario con ese correo.");
-                    return;
-                }
-
-                const idDuplicada = await model.existsByField("identificacion", identificacion, currentId);
-                if (idDuplicada) {
-                    alert("Ya existe otro usuario con esa identificación.");
-                    return;
-                }
-
-                const updateData = { ...baseData };
-
-                if (email !== currentEmail) updateData.email = email;
-                if (identificacion !== currentIdentificacion) updateData.identificacion = identificacion;
-
-                if (cambiarContrasena && cambiarContrasena.checked) {
-                    if (!nuevaContrasena) {
-                        alert("Ingresa la nueva contraseña.");
+                    if (!doc) {
+                        alert("Empleado no encontrado.");
                         return;
                     }
 
-                    updateData.passwordHash = await hashPasswordSafe(nuevaContrasena);
+                    const currentData = doc.data() || {};
+                    const currentEmail = String(currentData.email || "").trim();
+                    const currentIdentificacion = String(currentData.identificacion || "").trim();
 
-                    const currentUser = window.firebase?.auth?.()?.currentUser || null;
-                    if (currentUser && authUid && currentUser.uid === authUid) {
-                        try {
-                            await currentUser.updatePassword(nuevaContrasena);
-                        } catch (authErr) {
-                            console.warn("No se pudo actualizar la contraseña de Firebase Auth:", authErr);
-                        }
-                    } else {
-                        alert("La contraseña se actualizó en Firestore. Para cambiar la contraseña real de otro usuario en Firebase Auth necesitas Admin SDK en backend.");
+                    const cambiarContrasena = document.getElementById("cambiar-contrasena-empleado");
+                    const nuevaContrasena = getVal("nueva-contrasena-empleado").trim();
+                    const authUid = String(currentData.authUid || "").trim();
+
+                    const emailDuplicado = await model.existsByField("email", email, scope.empresa, scope.sucursal, currentId);
+                    if (emailDuplicado) {
+                        alert("Ya existe otro usuario con ese correo.");
+                        return;
                     }
-                }
 
-                await model.updateEmployeeFirestore(currentId, updateData);
+                    const idDuplicada = await model.existsByField("identificacion", identificacion, scope.empresa, scope.sucursal, currentId);
+                    if (idDuplicada) {
+                        alert("Ya existe otro usuario con esa identificación.");
+                        return;
+                    }
+
+                    const updateData = { ...baseData };
+
+                    if (email !== currentEmail) updateData.email = email;
+                    if (identificacion !== currentIdentificacion) updateData.identificacion = identificacion;
+
+                    if (cambiarContrasena && cambiarContrasena.checked) {
+                        if (!nuevaContrasena) {
+                            alert("Ingresa la nueva contraseña.");
+                            return;
+                        }
+
+                        updateData.passwordHash = await hashPasswordSafe(nuevaContrasena);
+
+                        const currentUser = window.firebase?.auth?.()?.currentUser || null;
+                        if (currentUser && authUid && currentUser.uid === authUid) {
+                            try {
+                                await currentUser.updatePassword(nuevaContrasena);
+                            } catch (authErr) {
+                                console.warn("No se pudo actualizar la contraseña de Firebase Auth:", authErr);
+                            }
+                        } else {
+                            alert("La contraseña se actualizó en Firestore. Para cambiar la contraseña real de otro usuario en Firebase Auth necesitas Admin SDK en backend.");
+                        }
+                    }
+
+                    await model.updateEmployeeFirestore(currentId, updateData);
+                });
+
                 alert("Empleado actualizado correctamente");
             } else {
                 const pass = getVal("register-password").trim();
@@ -514,28 +753,30 @@ import EmpleadosModel from "../models/empleados.model.js";
                     return;
                 }
 
-                const emailDuplicado = await model.existsByField("email", email);
-                if (emailDuplicado) {
-                    alert("Ya existe un usuario con ese correo.");
-                    return;
-                }
+                await executeWithSessionRetry("crear empleado", context, async () => {
+                    const emailDuplicado = await model.existsByField("email", email, scope.empresa, scope.sucursal);
+                    if (emailDuplicado) {
+                        alert("Ya existe un usuario con ese correo.");
+                        return;
+                    }
 
-                const idDuplicada = await model.existsByField("identificacion", identificacion);
-                if (idDuplicada) {
-                    alert("Ya existe un usuario con esa identificación.");
-                    return;
-                }
+                    const idDuplicada = await model.existsByField("identificacion", identificacion, scope.empresa, scope.sucursal);
+                    if (idDuplicada) {
+                        alert("Ya existe un usuario con esa identificación.");
+                        return;
+                    }
 
-                if (typeof window.crearUsuarioCompleto !== "function") {
-                    throw new Error("No existe window.crearUsuarioCompleto.");
-                }
+                    if (typeof window.crearUsuarioCompleto !== "function") {
+                        throw new Error("No existe window.crearUsuarioCompleto.");
+                    }
 
-                const hashedPassword = await hashPasswordSafe(pass);
+                    const hashedPassword = await hashPasswordSafe(pass);
 
-                await window.crearUsuarioCompleto({
-                    ...baseData,
-                    password: pass,
-                    passwordHash: hashedPassword
+                    await window.crearUsuarioCompleto({
+                        ...baseData,
+                        password: pass,
+                        passwordHash: hashedPassword
+                    });
                 });
 
                 alert("Empleado agregado correctamente");
@@ -550,6 +791,8 @@ import EmpleadosModel from "../models/empleados.model.js";
             console.error("Error al guardar el empleado:", error);
             alert("Error al guardar el empleado: " + (error.message || error));
         }
+
+
     }
 
     function bindUI() {
@@ -561,11 +804,16 @@ import EmpleadosModel from "../models/empleados.model.js";
             });
         }
 
+
         const logoutBtn = document.getElementById("logout-button");
         if (logoutBtn && !logoutBtn.dataset.bound) {
             logoutBtn.dataset.bound = "1";
             logoutBtn.addEventListener("click", () => {
-                window.logout?.({ redirect: true }) || (window.location.href = "index.html");
+                if (typeof window.logout === "function") {
+                    window.logout({ redirect: true });
+                } else {
+                    window.location.href = "index.html";
+                }
             });
         }
 
@@ -579,7 +827,9 @@ import EmpleadosModel from "../models/empleados.model.js";
         if (btnCancelar && !btnCancelar.dataset.bound) {
             btnCancelar.dataset.bound = "1";
             btnCancelar.addEventListener("click", () => {
-                window.cancelarFormulario?.();
+                if (typeof window.cancelarFormulario === "function") {
+                    window.cancelarFormulario();
+                }
                 window.currentEditingEmployeeId = null;
                 limpiarFormularioEmpleado();
                 ocultarSeccionEmpleado();
@@ -618,6 +868,8 @@ import EmpleadosModel from "../models/empleados.model.js";
                 if (btnViajero) return mandarViajero(btnViajero.dataset.id);
             });
         }
+
+
     }
 
     function initPasswordAndFormState() {
@@ -627,8 +879,12 @@ import EmpleadosModel from "../models/empleados.model.js";
     }
 
     async function init() {
-        const ready = await window.whenAdminReady?.();
-        if (!ready) return;
+        const context = await ensureAdminContext("inicializar el módulo de empleados");
+        if (!context) {
+            console.warn("No se pudo inicializar el módulo de empleados por falta de contexto válido.");
+            return;
+        }
+
 
         bindUI();
         initPasswordAndFormState();
@@ -640,7 +896,18 @@ import EmpleadosModel from "../models/empleados.model.js";
         if (document.getElementById("empleadosTable")) {
             await cargarEmpleados();
         }
+
+
     }
 
     document.addEventListener("DOMContentLoaded", init);
+
+    window.addEventListener("auth:session-updated", () => {
+        if (document.getElementById("empleadosTable")) {
+            cargarEmpleados().catch(() => { });
+        }
+        if (document.getElementById("empleado-jornada")) {
+            cargarJornadasEnSelect([]).catch(() => { });
+        }
+    });
 })();

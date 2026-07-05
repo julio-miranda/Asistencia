@@ -1,11 +1,9 @@
-// js/admin.js
-import { checkUserSession, logout } from "./services/session.service.js";
-import { hashPassword } from "./services/password.service.js";
+/* js/admin.js */
+import { checkUserSession, logout, getSessionData } from "./services/session.service.js";
 
 (function () {
-  // =========================
-  // Globals compartidas
-  // =========================
+  "use strict";
+
   window.adminEmpresa = window.adminEmpresa || "";
   window.adminSucursal = window.adminSucursal || "";
   window.currentEditingEmployeeId = window.currentEditingEmployeeId || null;
@@ -13,6 +11,7 @@ import { hashPassword } from "./services/password.service.js";
   window.asistenciasUnsub = window.asistenciasUnsub || null;
   window.adminSessionUserData = window.adminSessionUserData || null;
   window.adminUserDocId = window.adminUserDocId || null;
+  window.adminClaims = null;
 
   let resolveAdminReady;
   window.adminReadyPromise = new Promise((resolve) => {
@@ -23,9 +22,6 @@ import { hashPassword } from "./services/password.service.js";
     return await window.adminReadyPromise;
   };
 
-  // =========================
-  // Helpers
-  // =========================
   function obtenerSemanaActual() {
     const hoy = new Date();
     const d = hoy.getDay() || 7;
@@ -34,10 +30,13 @@ import { hashPassword } from "./services/password.service.js";
     const fin = new Date(inicio);
     fin.setDate(inicio.getDate() + 6);
 
+
     return {
       inicio: inicio.toISOString().split("T")[0],
       fin: fin.toISOString().split("T")[0]
     };
+
+
   }
 
   function formatDate(dateObj) {
@@ -50,6 +49,7 @@ import { hashPassword } from "./services/password.service.js";
   function crearFechaCompleta(fechaStr, timeStr) {
     if (!fechaStr) fechaStr = new Date().toISOString().split("T")[0];
     timeStr = timeStr || "00:00";
+
 
     const esPM = /p\.?m\.?/i.test(timeStr);
     const esAM = /a\.?m\.?/i.test(timeStr);
@@ -67,6 +67,8 @@ import { hashPassword } from "./services/password.service.js";
     const dt = new Date(fechaStr + "T00:00:00");
     dt.setHours(h, m, s, 0);
     return dt;
+
+
   }
 
   const SINONIMOS_NOCTURNO = ["noche", "nocturna", "nocturno", "nocturnas"];
@@ -77,77 +79,6 @@ import { hashPassword } from "./services/password.service.js";
     return SINONIMOS_NOCTURNO.some(s => low.includes(s));
   }
 
-  async function hashPasswordSafe(pass) {
-    if (typeof hashPassword === "function") {
-      return await hashPassword(pass);
-    }
-    if (window.bcrypt && typeof window.bcrypt.hash === "function") {
-      return await window.bcrypt.hash(pass, 10);
-    }
-    throw new Error("No hay función de hash disponible.");
-  }
-
-  function showRoute(tabla) {
-    const rutas = {
-      empleados: "empleados.html",
-      asistencias: "asistencias.html",
-      jornadas: "jornadas.html",
-      planilla: "planilla.html",
-      perfil: "perfil.html"
-    };
-
-    if (rutas[tabla]) {
-      window.location.href = rutas[tabla];
-    }
-  }
-
-  async function buscarUsuarioPorUidAutenticado(uid, email = "") {
-    const db = window.db;
-    if (!uid || !db || typeof db.collection !== "function") return null;
-
-    if (typeof window.buscarUsuarioFirestorePorAuthUid === "function") {
-      const doc = await window.buscarUsuarioFirestorePorAuthUid(uid);
-      if (doc) return doc;
-    }
-
-    let snap = await db.collection("usuarios")
-      .where("authUid", "==", uid)
-      .limit(1)
-      .get();
-
-    if (!snap.empty) return snap.docs[0];
-
-    if (email && typeof window.buscarUsuarioFirestorePorEmail === "function") {
-      const doc = await window.buscarUsuarioFirestorePorEmail(email);
-      if (doc) return doc;
-    }
-
-    if (email) {
-      snap = await db.collection("usuarios")
-        .where("email", "==", String(email).trim())
-        .limit(1)
-        .get();
-
-      if (!snap.empty) return snap.docs[0];
-    }
-
-    return null;
-  }
-
-  async function sincronizarAuthUidSiFalta(docRef, data, uid) {
-    if (!docRef || !data || !uid) return;
-    if (data.authUid) return;
-
-    try {
-      await docRef.update({ authUid: uid });
-    } catch (e) {
-      console.warn("No se pudo sincronizar authUid:", e);
-    }
-  }
-
-  // =========================
-  // Navegación / UI
-  // =========================
   function redirectToLogin() {
     logout({ redirect: true });
   }
@@ -160,9 +91,27 @@ import { hashPassword } from "./services/password.service.js";
     redirectToLogin();
   }
 
+  function showRoute(tabla) {
+    const rutas = {
+      empleados: "empleados.html",
+      asistencias: "asistencias.html",
+      jornadas: "jornadas.html",
+      planilla: "planilla.html",
+      perfil: "perfil.html"
+    };
+
+
+    if (rutas[tabla]) {
+      window.location.href = rutas[tabla];
+    }
+
+
+  }
+
   function mostrarTabla(tabla) {
     const navLinks = document.getElementById("navbar-links");
     if (navLinks) navLinks.classList.remove("active");
+
 
     const ids = [
       "perfil-container",
@@ -228,11 +177,14 @@ import { hashPassword } from "./services/password.service.js";
     }
 
     showRoute(tabla);
+
+
   }
 
   function cancelarFormulario() {
     const empleadoContainer = document.getElementById("empleado-container");
     const tablaEmpleados = document.getElementById("tabla-empleados");
+
 
     if (empleadoContainer) {
       const form = document.getElementById("empleado-form");
@@ -256,7 +208,6 @@ import { hashPassword } from "./services/password.service.js";
 
       const nuevaCont = document.getElementById("nueva-contrasena-empleado-container");
       if (nuevaCont) nuevaCont.style.display = "none";
-
       return;
     }
 
@@ -271,21 +222,19 @@ import { hashPassword } from "./services/password.service.js";
 
     const perfilContainer = document.getElementById("perfil-container");
     if (perfilContainer) {
-      if (typeof window.verPerfil === "function") {
-        window.verPerfil();
-      }
+      if (typeof window.verPerfil === "function") window.verPerfil();
       return;
     }
 
     const planillaContainer = document.getElementById("planilla-container");
     if (planillaContainer) {
-      if (typeof window.mostrarPlanilla === "function") {
-        window.mostrarPlanilla();
-      }
+      if (typeof window.mostrarPlanilla === "function") window.mostrarPlanilla();
       return;
     }
 
     window.location.href = "admin.html";
+
+
   }
 
   function verPerfilFallback() {
@@ -293,9 +242,6 @@ import { hashPassword } from "./services/password.service.js";
     window.location.href = "perfil.html";
   }
 
-  // =========================
-  // Exponer helpers
-  // =========================
   window.obtenerSemanaActual = obtenerSemanaActual;
   window.formatDate = formatDate;
   window.crearFechaCompleta = crearFechaCompleta;
@@ -309,9 +255,6 @@ import { hashPassword } from "./services/password.service.js";
     window.verPerfil = verPerfilFallback;
   }
 
-  // =========================
-  // UI común
-  // =========================
   function initCommonUI() {
     const menuToggle = document.getElementById("menu-toggle");
     if (menuToggle && !menuToggle.dataset.bound) {
@@ -322,6 +265,7 @@ import { hashPassword } from "./services/password.service.js";
         nav.classList.toggle("active");
       });
     }
+
 
     const logoutBtn = document.getElementById("logout-button");
     if (logoutBtn && !logoutBtn.dataset.bound) {
@@ -391,16 +335,40 @@ import { hashPassword } from "./services/password.service.js";
         }, 200);
       });
     }
+
+
   }
 
-  // =========================
-  // Bootstrap de sesión
-  // =========================
+  function combinarDatosSesion({ userDataFromCallback, sessionData, userDocIdFromCallback }) {
+    const role = userDataFromCallback?.role || sessionData?.role || null;
+    const empresa = userDataFromCallback?.empresa || sessionData?.empresa || "";
+    const sucursal = userDataFromCallback?.sucursal || sessionData?.sucursal || "";
+    const nombre = userDataFromCallback?.nombre || sessionData?.nombre || "";
+    const email = userDataFromCallback?.email || sessionData?.email || "";
+
+
+    return {
+      role,
+      empresa,
+      sucursal,
+      nombre,
+      email,
+      docId: userDocIdFromCallback || userDataFromCallback?.docId || sessionData?.docId || null
+    };
+
+
+  }
+
+  function tieneContextoAdminValido(contexto) {
+    return !!(contexto && contexto.role === "admin" && contexto.empresa && contexto.sucursal);
+  }
+
   document.addEventListener("DOMContentLoaded", async () => {
     initCommonUI();
 
+
     try {
-      await checkUserSession(async (uid, userDataFromCallback, userDocIdFromCallback) => {
+      await checkUserSession(async (uid, userDataFromCallback, userDocIdFromCallback, meta) => {
         try {
           if (!uid) {
             if (resolveAdminReady) resolveAdminReady(null);
@@ -408,65 +376,51 @@ import { hashPassword } from "./services/password.service.js";
             return;
           }
 
-          const db = window.db;
-          if (!db || !db.collection) {
+          const sessionData = meta?.sessionData || await getSessionData().catch(() => null);
+          const contexto = combinarDatosSesion({
+            userDataFromCallback,
+            sessionData,
+            userDocIdFromCallback
+          });
+
+          if (!tieneContextoAdminValido(contexto)) {
+            console.warn("Faltan datos mínimos para entrar al panel admin:", {
+              uid,
+              contexto,
+              sessionData,
+              userDataFromCallback
+            });
             if (resolveAdminReady) resolveAdminReady(null);
             redirectToLogin();
             return;
           }
 
-          const auth = window.firebase && typeof window.firebase.auth === "function"
-            ? window.firebase.auth()
-            : null;
-          const email = auth && auth.currentUser ? (auth.currentUser.email || "") : "";
-
-          let userData = userDataFromCallback || null;
-          let userDocId = userDocIdFromCallback || null;
-          let userDocRef = null;
-
-          let userDoc = null;
-
-          if (!userData) {
-            userDoc = await buscarUsuarioPorUidAutenticado(uid, email);
-            if (userDoc) {
-              userData = userDoc.data() || {};
-              userDocId = userDoc.id;
-              userDocRef = userDoc.ref;
-              await sincronizarAuthUidSiFalta(userDocRef, userData, uid);
-            }
-          } else {
-            if (!userData.authUid || userData.authUid !== uid) {
-              userDoc = await buscarUsuarioPorUidAutenticado(uid, email);
-              if (userDoc) {
-                userData = userDoc.data() || userData;
-                userDocId = userDoc.id;
-                userDocRef = userDoc.ref;
-                await sincronizarAuthUidSiFalta(userDocRef, userData, uid);
-              }
-            } else if (userDocId) {
-              userDocRef = db.collection("usuarios").doc(userDocId);
-            }
-          }
-
-          if (!userData) {
+          if (contexto.role !== "admin") {
             if (resolveAdminReady) resolveAdminReady(null);
-            redirectToLogin();
+            handleUnauthorizedRole(contexto.role);
             return;
           }
 
-          if (userData.role !== "admin") {
-            if (resolveAdminReady) resolveAdminReady(null);
-            handleUnauthorizedRole(userData.role);
-            return;
-          }
-
+          window.adminClaims = null;
           window.adminSessionUserData = {
-            ...userData,
-            docId: userDocId || userData.docId || null
+            ...(userDataFromCallback || {}),
+            ...(sessionData || {}),
+            role: contexto.role,
+            empresa: contexto.empresa,
+            sucursal: contexto.sucursal,
+            nombre: contexto.nombre,
+            email: contexto.email,
+            docId: contexto.docId
           };
-          window.adminUserDocId = userDocId || userData.docId || null;
-          window.adminEmpresa = userData.empresa || "";
-          window.adminSucursal = userData.sucursal || "";
+          window.adminUserDocId = contexto.docId;
+          window.adminEmpresa = contexto.empresa;
+          window.adminSucursal = contexto.sucursal;
+
+          window.dispatchEvent(new CustomEvent("auth:session-updated", {
+            detail: {
+              sessionData: window.adminSessionUserData
+            }
+          }));
 
           if (resolveAdminReady) resolveAdminReady(window.adminSessionUserData);
 
@@ -486,5 +440,6 @@ import { hashPassword } from "./services/password.service.js";
       if (resolveAdminReady) resolveAdminReady(null);
       redirectToLogin();
     }
+
   });
 })();

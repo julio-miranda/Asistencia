@@ -1,3 +1,4 @@
+/* js/models/perfil.model.js */
 export default class PerfilModel {
     constructor(db) {
         if (!db) {
@@ -6,34 +7,62 @@ export default class PerfilModel {
         this.db = db;
     }
 
-    async getUserByAuthUid(uid) {
-        if (!uid) return null;
 
-        const snap = await this.db.collection("usuarios")
-            .where("authUid", "==", String(uid).trim())
-            .limit(1)
-            .get();
-
-        return snap.empty ? null : snap.docs[0];
+    normalize(value) {
+        return String(value || "").trim();
     }
 
     async getUserById(id) {
-        if (!id) return null;
+        const cleanId = this.normalize(id);
+        if (!cleanId) return null;
 
-        const doc = await this.db.collection("usuarios")
-            .doc(String(id))
-            .get();
+        try {
+            const doc = await this.db.collection("usuarios")
+                .doc(cleanId)
+                .get();
 
-        return doc.exists ? doc : null;
+            if (doc.exists) {
+                return doc;
+            }
+
+            const snap = await this.db.collection("usuarios")
+                .where("authUid", "==", cleanId)
+                .limit(1)
+                .get();
+
+            return snap.empty ? null : snap.docs[0];
+        } catch (error) {
+            console.error("Error consultando usuario por ID:", error);
+            throw error;
+        }
+    }
+
+    async getUserByAuthUid(uid) {
+        return await this.getUserById(uid);
     }
 
     async updateProfile(docId, data) {
-        if (!docId) {
+        const cleanDocId = this.normalize(docId);
+
+        if (!cleanDocId) {
             throw new Error("docId requerido para actualizar perfil.");
         }
 
         await this.db.collection("usuarios")
-            .doc(String(docId))
+            .doc(cleanDocId)
             .update(data);
     }
+
+    async updateProfileByUid(uid, data) {
+        const cleanUid = this.normalize(uid);
+
+        if (!cleanUid) {
+            throw new Error("uid requerido para actualizar perfil.");
+        }
+
+        await this.db.collection("usuarios")
+            .doc(cleanUid)
+            .update(data);
+    }
+
 }

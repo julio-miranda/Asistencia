@@ -1,3 +1,4 @@
+/* js/models/admin.asistencias_jornadas.model.js */
 export default class AdminAsistenciasJornadasModel {
     constructor(db) {
         if (!db) {
@@ -5,6 +6,7 @@ export default class AdminAsistenciasJornadasModel {
         }
         this.db = db;
     }
+
 
     async getJornadasByScope(empresa = "", sucursal = "") {
         let query = this.db.collection("jornadas");
@@ -78,4 +80,5 @@ export default class AdminAsistenciasJornadasModel {
             clean.map(id => this.db.collection("jornadas").doc(id).get())
         );
     }
+
 }

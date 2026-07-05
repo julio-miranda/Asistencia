@@ -1,5 +1,6 @@
+/* js/controllers/admin.perfil.controller.js */
 import PerfilModel from "../models/perfil.model.js";
-import { checkUserSession, logout } from "../services/session.service.js";
+import { checkUserSession, logout, getSessionData, createSession } from "../services/session.service.js";
 import { hashPassword } from "../services/password.service.js";
 
 const db = window.db;
@@ -12,6 +13,7 @@ const model = new PerfilModel(db);
 let perfilDocId = null;
 let perfilDataCache = null;
 let currentSessionUid = null;
+let currentSessionData = null;
 
 function setValor(id, valor) {
     const el = document.getElementById(id);
@@ -33,27 +35,107 @@ function redirigirLogin() {
     });
 }
 
+function dispatchSessionUpdate() {
+    window.dispatchEvent(new CustomEvent("auth:session-updated", {
+        detail: {
+            sessionData: window.adminSessionUserData || null
+        }
+    }));
+}
+
 async function obtenerSesion() {
     try {
-        const session = await checkUserSession();
-        if (!session || !session.uid) return null;
-        currentSessionUid = session.uid;
-        return session;
+        const sessionInfo = await checkUserSession();
+        if (!sessionInfo || !sessionInfo.uid) return null;
+
+
+        currentSessionUid = sessionInfo.uid;
+        currentSessionData = sessionInfo.userData || null;
+
+        return sessionInfo;
     } catch (e) {
         console.warn("Error leyendo sesión:", e);
         return null;
     }
+
+
 }
 
 async function buscarUsuarioPorUid(uid) {
     if (!uid) return null;
+
+
+    if (typeof model.getUserById === "function") {
+        const byId = await model.getUserById(uid);
+        if (byId) return byId;
+    }
+
+    if (typeof model.getUserByAuthUid === "function") {
+        const byAuthUid = await model.getUserByAuthUid(uid);
+        if (byAuthUid) return byAuthUid;
+    }
 
     if (typeof window.buscarUsuarioFirestorePorAuthUid === "function") {
         const doc = await window.buscarUsuarioFirestorePorAuthUid(uid);
         if (doc) return doc;
     }
 
-    return await model.getUserByAuthUid(uid);
+    return null;
+
+
+}
+
+async function migrarPerfilSiNecesario(doc) {
+    if (!doc || !currentSessionUid) return null;
+
+
+    const data = doc.data() || {};
+    const legacyDocId = doc.id || null;
+
+    if (doc.id === currentSessionUid) {
+        return {
+            migrated: false,
+            canonicalDocId: currentSessionUid,
+            profile: {
+                id: currentSessionUid,
+                ...data,
+                authUid: data.authUid || currentSessionUid
+            }
+        };
+    }
+
+    if (typeof window.ensureCurrentUserCanonicalProfile === "function") {
+        try {
+            const migration = await window.ensureCurrentUserCanonicalProfile({
+                uid: currentSessionUid,
+                profileData: {
+                    id: doc.id,
+                    authUid: data.authUid || currentSessionUid,
+                    ...data
+                },
+                currentDocId: legacyDocId,
+                deleteLegacyDoc: true
+            });
+
+            if (migration && migration.migrated && migration.profile) {
+                return migration;
+            }
+        } catch (e) {
+            console.warn("No se pudo migrar el perfil actual:", e);
+        }
+    }
+
+    return {
+        migrated: false,
+        canonicalDocId: legacyDocId || currentSessionUid,
+        profile: {
+            id: legacyDocId || currentSessionUid,
+            ...data,
+            authUid: data.authUid || currentSessionUid
+        }
+    };
+
+
 }
 
 function resetPasswordFields() {
@@ -61,9 +143,12 @@ function resetPasswordFields() {
     const nuevaCont = document.getElementById("nueva-contrasena-container");
     const nuevaInp = document.getElementById("nueva-contrasena");
 
+
     if (cambiar) cambiar.checked = false;
     if (nuevaCont) nuevaCont.style.display = "none";
     if (nuevaInp) nuevaInp.value = "";
+
+
 }
 
 function bindCommonUI() {
@@ -75,6 +160,7 @@ function bindCommonUI() {
             if (nav) nav.classList.toggle("active");
         });
     }
+
 
     const logoutBtn = document.getElementById("logout-button");
     if (logoutBtn && !logoutBtn.dataset.bound) {
@@ -151,11 +237,14 @@ function bindCommonUI() {
             }, 200);
         });
     }
+
+
 }
 
 function bindFormEvents() {
     const form = document.getElementById("perfil-form");
     if (!form || form.dataset.bound) return;
+
 
     form.dataset.bound = "1";
 
@@ -269,19 +358,53 @@ function bindFormEvents() {
 
             await model.updateProfile(perfilDocId, updateData);
 
+            const newSessionData = await createSession(currentSessionUid, 1, {
+                authUid: currentSessionUid,
+                role: currentSessionData?.role || perfilDataCache?.role || null,
+                empresa: updateData.empresa || perfilDataCache?.empresa || "",
+                sucursal: updateData.sucursal || perfilDataCache?.sucursal || "",
+                email: updateData.email || "",
+                nombre: updateData.nombre || "",
+                docId: perfilDocId,
+                activo: perfilDataCache?.activo !== undefined ? perfilDataCache.activo : true,
+                blocked: perfilDataCache?.blocked === true
+            });
+
+            perfilDataCache = {
+                ...(perfilDataCache || {}),
+                ...updateData,
+                id: perfilDocId,
+                authUid: currentSessionUid
+            };
+
+            window.adminSessionUserData = {
+                ...(window.adminSessionUserData || {}),
+                ...(perfilDataCache || {}),
+                ...updateData,
+                docId: perfilDocId,
+                session: newSessionData
+            };
+            window.adminUserDocId = perfilDocId;
+            window.adminEmpresa = updateData.empresa || "";
+            window.adminSucursal = updateData.sucursal || "";
+
+            dispatchSessionUpdate();
+
             alert("Perfil actualizado correctamente");
-            perfilDataCache = null;
             await cargarPerfil();
         } catch (error) {
             console.error("Error al actualizar perfil:", error);
             alert("Error al actualizar: " + (error.message || error));
         }
     });
+
+
 }
 
 async function cargarPerfil() {
     const perfilContainer = document.getElementById("perfil-container");
     const form = document.getElementById("perfil-form");
+
 
     if (!perfilContainer || !form) return;
 
@@ -297,21 +420,32 @@ async function cargarPerfil() {
             return;
         }
 
-        if (window.adminSessionUserData) {
-            perfilDataCache = window.adminSessionUserData;
-            perfilDocId = window.adminSessionUserData.docId || null;
+        const uid = session.uid;
+        const sessionProfile = session.userData || null;
+
+        if (sessionProfile && sessionProfile.docId) {
+            perfilDocId = sessionProfile.docId;
+            perfilDataCache = sessionProfile;
         }
 
-        if (!perfilDataCache) {
-            const doc = await buscarUsuarioPorUid(session.uid);
-            if (!doc) {
-                alert("No se encontró el perfil.");
-                return;
-            }
+        let doc = await buscarUsuarioPorUid(uid);
 
-            perfilDocId = doc.id;
-            perfilDataCache = doc.data() || {};
+        if (!doc && sessionProfile && sessionProfile.docId) {
+            doc = await model.getUserById(sessionProfile.docId);
         }
+
+        if (!doc) {
+            alert("No se encontró el perfil.");
+            return;
+        }
+
+        const migration = await migrarPerfilSiNecesario(doc);
+        perfilDocId = migration?.canonicalDocId || doc.id || uid;
+        perfilDataCache = {
+            id: perfilDocId,
+            ...(migration?.profile || doc.data() || {}),
+            authUid: uid
+        };
 
         const data = perfilDataCache || {};
 
@@ -327,18 +461,28 @@ async function cargarPerfil() {
         bindFormEvents();
         bindCommonUI();
 
-        const inicioEl = document.getElementById("btn-cancelar-perfil");
-        if (inicioEl && !inicioEl.dataset.bound) {
-            inicioEl.dataset.bound = "1";
-            inicioEl.addEventListener("click", cancelarFormulario);
+        const btnCancelar = document.getElementById("btn-cancelar-perfil");
+        if (btnCancelar && !btnCancelar.dataset.bound) {
+            btnCancelar.dataset.bound = "1";
+            btnCancelar.addEventListener("click", cancelarFormulario);
         }
 
         window.adminEmpresa = window.adminEmpresa || data.empresa || "";
         window.adminSucursal = window.adminSucursal || data.sucursal || "";
+        window.adminSessionUserData = {
+            ...(window.adminSessionUserData || {}),
+            ...data,
+            docId: perfilDocId,
+            authUid: uid
+        };
+
+        dispatchSessionUpdate();
     } catch (error) {
         console.error("Error al cargar perfil:", error);
         alert("Error al cargar perfil: " + (error.message || error));
     }
+
+
 }
 
 window.verPerfil = cargarPerfil;
