@@ -1,3 +1,4 @@
+// js/controllers/register.controller.js
 import RegisterModel from "../models/register.model.js";
 import { hashPassword } from "../services/password.service.js";
 import { crearUsuarioCompleto } from "../services/register.service.js";
@@ -43,13 +44,18 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
     return String(el?.value || "").trim();
   }
 
+  function normalizarTipoDocumento(valor) {
+    const v = String(valor || "").trim().toLowerCase();
+    if (v.includes("dui")) return "dui";
+    if (v.includes("pasaporte")) return "pasaporte";
+    return "";
+  }
+
   function formatearDUI(valor) {
     valor = String(valor || "").replace(/\D/g, "");
-
     if (valor.length > 8) {
       valor = valor.substring(0, 8) + "-" + valor.substring(8, 9);
     }
-
     return valor.substring(0, 10);
   }
 
@@ -102,7 +108,7 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
     if (!empresaSelect) return;
 
     try {
-      const empresas = await model.getAdminCompanies();
+      const empresas = await model.getPublicCompanies();
 
       empresaSelect.innerHTML = `
         <option value="">Selecciona una empresa</option>
@@ -154,8 +160,8 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
   function bindDuiFormat() {
     if (inputNumero && selectTipo) {
       inputNumero.addEventListener("input", () => {
-        const tipo = selectTipo.value;
-        if (tipo === "DUI") {
+        const tipo = normalizarTipoDocumento(selectTipo.value);
+        if (tipo === "dui") {
           inputNumero.value = formatearDUI(inputNumero.value);
         }
       });
@@ -224,7 +230,8 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
     try {
       const nombre = obtenerTextoInput(document.getElementById("register-nombre"));
       const numero = obtenerTextoInput(inputNumero);
-      const identificacionNombre = obtenerTextoInput(selectTipo);
+      const identificacionNombreRaw = obtenerTextoInput(selectTipo);
+      const identificacionNombre = normalizarTipoDocumento(identificacionNombreRaw);
       const fecha = obtenerTextoInput(document.getElementById("register-Fecha"));
       const direccion = obtenerTextoInput(document.getElementById("register-direccion"));
       const telefono = obtenerTextoInput(document.getElementById("register-telefono"));
@@ -236,7 +243,7 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
       if (!numero) return alert("Número obligatorio.");
       if (!identificacionNombre) return alert("Selecciona tipo documento.");
 
-      if (identificacionNombre === "DUI" && !validarDUI(numero)) {
+      if (identificacionNombre === "dui" && !validarDUI(numero)) {
         return alert("Formato DUI inválido (00000000-0)");
       }
 
@@ -255,33 +262,36 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
       if (emailExiste) return alert("Correo ya existe.");
       if (idExiste) return alert("Identificación ya existe.");
 
-      const role = await model.adminExistsInScope(empresa, sucursal)
-        ? "empleado"
-        : "admin";
-
       const passwordHash = await hashPassword(pass);
 
-      await crearUsuarioCompleto({
+      const payload = {
         email,
         password: pass,
         passwordHash,
-
         nombre,
         identificacion: numero,
         identificacionNombre,
         nacimiento: fecha,
         descripcion: "Sin descripción",
         salarioH: 1.25,
-
-        role,
+        role: "empleado",
         empresa,
         sucursal,
-
         direccion,
         telefono,
         activo: true,
         createdAt: Date.now()
-      });
+      };
+
+      const creationResult = await crearUsuarioCompleto(payload);
+
+      if (creationResult?.authUid) {
+        await db.collection("usuarios").doc(String(creationResult.authUid)).set({
+          ...payload,
+          authUid: creationResult.authUid,
+          docId: creationResult.authUid
+        }, { merge: true });
+      }
 
       try {
         const auth = window.firebase?.auth ? window.firebase.auth() : null;
@@ -290,9 +300,8 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
         console.warn("No se pudo cerrar sesión después del registro:", signOutError);
       }
 
-      alert(`Registro exitoso como ${role}`);
+      alert("Registro exitoso");
       window.location.href = "index.html";
-
     } catch (err) {
       console.error(err);
       alert("Error: " + (err.message || err));

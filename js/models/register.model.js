@@ -1,33 +1,38 @@
+// js/models/register.model.js
 export default class RegisterModel {
   constructor(db) {
-    if (!db) {
+    if (!db || typeof db.collection !== "function") {
       throw new Error("Firestore no está disponible.");
     }
     this.db = db;
   }
 
-  async getAdminCompanies() {
-    const snapshot = await this.db.collection("usuarios")
-      .where("role", "==", "admin")
-      .get();
+  normalize(value) {
+    return String(value || "").trim();
+  }
+
+  normalizeEmail(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  async getPublicCompanies() {
+    const snapshot = await this.db.collection("empresas").get();
 
     const empresas = new Set();
-
     snapshot.forEach(doc => {
       const data = doc.data() || {};
-      if (data.empresa) {
-        empresas.add(String(data.empresa).trim());
-      }
+      const empresa = this.normalize(data.empresa);
+      if (empresa) empresas.add(empresa);
     });
 
     return Array.from(empresas).sort();
   }
 
   async getBranchesByCompany(empresa) {
-    const value = String(empresa || "").trim();
+    const value = this.normalize(empresa);
     if (!value) return [];
 
-    const snapshot = await this.db.collection("usuarios")
+    const snapshot = await this.db.collection("empresas")
       .where("empresa", "==", value)
       .get();
 
@@ -35,8 +40,9 @@ export default class RegisterModel {
 
     snapshot.forEach(doc => {
       const data = doc.data() || {};
-      if (data.sucursal) {
-        sucursales.add(String(data.sucursal).trim());
+      const sucursal = this.normalize(data.sucursal);
+      if (sucursal) {
+        sucursales.add(sucursal);
       }
     });
 
@@ -44,7 +50,7 @@ export default class RegisterModel {
   }
 
   async emailExists(email) {
-    const value = String(email || "").trim().toLowerCase();
+    const value = this.normalizeEmail(email);
     if (!value) return false;
 
     const snap = await this.db.collection("usuarios")
@@ -56,27 +62,11 @@ export default class RegisterModel {
   }
 
   async identificationExists(identificacion) {
-    const value = String(identificacion || "").trim();
+    const value = this.normalize(identificacion);
     if (!value) return false;
 
     const snap = await this.db.collection("usuarios")
       .where("identificacion", "==", value)
-      .limit(1)
-      .get();
-
-    return !snap.empty;
-  }
-
-  async adminExistsInScope(empresa, sucursal) {
-    const emp = String(empresa || "").trim();
-    const suc = String(sucursal || "").trim();
-
-    if (!emp || !suc) return false;
-
-    const snap = await this.db.collection("usuarios")
-      .where("empresa", "==", emp)
-      .where("sucursal", "==", suc)
-      .where("role", "==", "admin")
       .limit(1)
       .get();
 
