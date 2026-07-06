@@ -1,6 +1,4 @@
-// js/controllers/register.controller.js
 import RegisterModel from "../models/register.model.js";
-import { hashPassword } from "../services/password.service.js";
 import { crearUsuarioCompleto } from "../services/register.service.js";
 
 (function (window, document) {
@@ -12,7 +10,11 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
     return;
   }
 
-  const model = new RegisterModel(db);
+  const auth = window.firebase && typeof window.firebase.auth === "function"
+    ? window.firebase.auth()
+    : null;
+
+  const model = new RegisterModel(db, auth);
 
   const empresaSelect = document.getElementById("register-empresa-select");
   const sucursalSelect = document.getElementById("register-sucursal-select");
@@ -256,18 +258,27 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
       if (!empresa) return alert("Selecciona o ingresa una empresa.");
       if (!sucursal) return alert("Selecciona o ingresa una sucursal.");
 
-      const emailExiste = await model.emailExists(email);
-      const idExiste = await model.identificationExists(numero);
+      let emailExiste = false;
+      let idExiste = false;
+
+      try {
+        emailExiste = await model.emailExists(email);
+      } catch (checkErr) {
+        console.warn("No se pudo verificar si el correo existe:", checkErr);
+      }
+
+      try {
+        idExiste = await model.identificationExists(numero);
+      } catch (checkErr) {
+        console.warn("No se pudo verificar si la identificación existe:", checkErr);
+      }
 
       if (emailExiste) return alert("Correo ya existe.");
       if (idExiste) return alert("Identificación ya existe.");
 
-      const passwordHash = await hashPassword(pass);
-
       const payload = {
         email,
         password: pass,
-        passwordHash,
         nombre,
         identificacion: numero,
         identificacionNombre,
@@ -280,21 +291,23 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
         direccion,
         telefono,
         activo: true,
+        blocked: false,
         createdAt: Date.now()
       };
 
       const creationResult = await crearUsuarioCompleto(payload);
 
-      if (creationResult?.authUid) {
-        await db.collection("usuarios").doc(String(creationResult.authUid)).set({
-          ...payload,
-          authUid: creationResult.authUid,
-          docId: creationResult.authUid
-        }, { merge: true });
+      const authUid = String(
+        creationResult?.authUid ||
+        auth?.currentUser?.uid ||
+        ""
+      ).trim();
+
+      if (!authUid) {
+        throw new Error("No se pudo obtener el authUid del usuario creado.");
       }
 
       try {
-        const auth = window.firebase?.auth ? window.firebase.auth() : null;
         if (auth) await auth.signOut();
       } catch (signOutError) {
         console.warn("No se pudo cerrar sesión después del registro:", signOutError);

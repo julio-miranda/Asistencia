@@ -1,10 +1,13 @@
-// js/models/register.model.js
 export default class RegisterModel {
-  constructor(db) {
+  constructor(db, auth = null) {
     if (!db || typeof db.collection !== "function") {
       throw new Error("Firestore no está disponible.");
     }
+
     this.db = db;
+    this.auth = auth || (window.firebase && typeof window.firebase.auth === "function"
+      ? window.firebase.auth()
+      : null);
   }
 
   normalize(value) {
@@ -13,6 +16,17 @@ export default class RegisterModel {
 
   normalizeEmail(value) {
     return String(value || "").trim().toLowerCase();
+  }
+
+  getAuth() {
+    if (this.auth) return this.auth;
+
+    if (window.firebase && typeof window.firebase.auth === "function") {
+      this.auth = window.firebase.auth();
+      return this.auth;
+    }
+
+    return null;
   }
 
   async getPublicCompanies() {
@@ -53,23 +67,35 @@ export default class RegisterModel {
     const value = this.normalizeEmail(email);
     if (!value) return false;
 
-    const snap = await this.db.collection("usuarios")
-      .where("email", "==", value)
-      .limit(1)
-      .get();
+    try {
+      const auth = this.getAuth();
 
-    return !snap.empty;
+      if (auth && typeof auth.fetchSignInMethodsForEmail === "function") {
+        const methods = await auth.fetchSignInMethodsForEmail(value);
+        return Array.isArray(methods) && methods.length > 0;
+      }
+
+      console.warn("Auth no está disponible para verificar correo.");
+      return false;
+    } catch (error) {
+      console.warn("No se pudo verificar si el correo existe:", error);
+      return false;
+    }
   }
 
   async identificationExists(identificacion) {
     const value = this.normalize(identificacion);
     if (!value) return false;
 
-    const snap = await this.db.collection("usuarios")
-      .where("identificacion", "==", value)
-      .limit(1)
-      .get();
+    try {
+      const snap = await this.db.collection("registro_identificaciones")
+        .doc(value)
+        .get();
 
-    return !snap.empty;
+      return snap.exists;
+    } catch (error) {
+      console.warn("No se pudo verificar si la identificación existe:", error);
+      return false;
+    }
   }
 }

@@ -6,8 +6,9 @@ export default class PlanillaModel {
         this.db = db;
     }
 
+
     async getEmpleadosByScope(empresa = "", sucursal = "") {
-        let query = this.db.collection("usuarios")
+        const query = this.db.collection("usuarios")
             .where("empresa", "==", String(empresa).trim())
             .where("sucursal", "==", String(sucursal).trim())
             .where("role", "==", "empleado");
@@ -16,7 +17,7 @@ export default class PlanillaModel {
     }
 
     async getJornadasByScope(empresa = "", sucursal = "") {
-        let query = this.db.collection("jornadas")
+        const query = this.db.collection("jornadas")
             .where("empresa", "==", String(empresa).trim())
             .where("sucursal", "==", String(sucursal).trim());
 
@@ -24,7 +25,7 @@ export default class PlanillaModel {
     }
 
     async getAsistenciasByScope(empresa = "", sucursal = "") {
-        let query = this.db.collection("asistencias")
+        const query = this.db.collection("asistencias")
             .where("empresa", "==", String(empresa).trim())
             .where("sucursal", "==", String(sucursal).trim());
 
