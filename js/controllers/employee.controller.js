@@ -1,3 +1,5 @@
+// js/controllers/employee.controller.js
+
 import EmployeeModel from "../models/employee.model.js";
 import { getSessionData, logout } from "../services/session.service.js";
 
@@ -384,7 +386,13 @@ function checkLocation(successCallback, errorCallback) {
       const distance = calcularDistancia(allowedLat, allowedLng, currentLat, currentLng);
 
       if (distance <= allowedRadius) {
-        successCallback && successCallback();
+        Promise.resolve()
+          .then(() => successCallback && successCallback())
+          .catch((err) => {
+            console.error("Error dentro del flujo de ubicación:", err);
+            alert(`Error al registrar asistencia: ${err.message || err}`);
+            errorCallback && errorCallback(err);
+          });
       } else {
         errorCallback && errorCallback(distance);
       }
@@ -680,6 +688,7 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
         }
 
         const baseData = {
+          authUid: uid,
           userId: userData.id,
           user: userData.nombre,
           empresa,
@@ -703,7 +712,7 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
           }
 
           baseData.justificacion = justif;
-          mostrarQrResultado(`Jornada: ${jornadaNombre || jornadaId} (${horaEntrada} - ${horaSalida})`);
+          mostrarQrResultado(`Jornada: ${jornadaNombre || jornadaId} (${horaEntrada || "??:??"} - ${horaSalida || "??:??"})`);
         }
 
         await model.setAsistencia(asistenciaRef, baseData);
@@ -739,6 +748,223 @@ function initUI() {
       });
     });
   }
+}
+
+const DEBUG_MAX_LINES = 120;
+
+let debugPanelReady = false;
+
+let originalConsole = null;
+
+
+
+function safeStringify(value) {
+
+  if (value instanceof Error) {
+
+    return `${value.name}: ${value.message}\n${value.stack || ""}`.trim();
+
+  }
+
+
+
+  if (typeof value === "string") return value;
+
+  if (value === undefined) return "undefined";
+
+  if (value === null) return "null";
+
+
+
+  try {
+
+    return JSON.stringify(value, null, 2);
+
+  } catch (_) {
+
+    try {
+
+      return String(value);
+
+    } catch (_) {
+
+      return "[No serializable]";
+
+    }
+
+  }
+
+}
+
+
+
+function formatDebugLine(level, args) {
+
+  const ts = new Date().toLocaleTimeString();
+
+  const text = args.map(safeStringify).join(" ");
+
+  return `[${ts}] [${level.toUpperCase()}] ${text}`;
+
+}
+
+
+
+function appendDebugLine(level, args) {
+
+  const output = document.getElementById("debugOutput");
+
+  if (!output) return;
+
+
+
+  const line = document.createElement("div");
+
+  line.textContent = formatDebugLine(level, args);
+
+  output.appendChild(line);
+
+
+
+  while (output.childNodes.length > DEBUG_MAX_LINES) {
+
+    output.removeChild(output.firstChild);
+
+  }
+
+
+
+  output.scrollTop = output.scrollHeight;
+
+}
+
+
+
+function initDebugPanel() {
+
+  if (debugPanelReady) return;
+
+  debugPanelReady = true;
+
+
+
+  const panel = document.getElementById("debugPanel");
+
+  const output = document.getElementById("debugOutput");
+
+  const toggleBtn = document.getElementById("debugToggleBtn");
+
+  const clearBtn = document.getElementById("debugClearBtn");
+
+
+
+  if (!panel || !output || !toggleBtn || !clearBtn) {
+
+    return;
+
+  }
+
+
+
+  originalConsole = {
+
+    log: console.log.bind(console),
+
+    warn: console.warn.bind(console),
+
+    error: console.error.bind(console),
+
+    info: console.info.bind(console),
+
+    debug: console.debug ? console.debug.bind(console) : console.log.bind(console)
+
+  };
+
+
+
+  ["log", "warn", "error", "info", "debug"].forEach((level) => {
+
+    console[level] = (...args) => {
+
+      try {
+
+        originalConsole[level](...args);
+
+      } catch (_) { }
+
+      appendDebugLine(level, args);
+
+    };
+
+  });
+
+
+
+  window.addEventListener("error", (event) => {
+
+    const message = event?.message || "Error global";
+
+    const source = event?.filename ? `${event.filename}:${event.lineno || 0}:${event.colno || 0}` : "";
+
+    console.error(message, source, event?.error || "");
+
+  });
+
+
+
+  window.addEventListener("unhandledrejection", (event) => {
+
+    const reason = event?.reason instanceof Error
+
+      ? event.reason
+
+      : safeStringify(event?.reason);
+
+    console.error("Promesa rechazada sin manejar:", reason);
+
+  });
+
+
+
+  clearBtn.addEventListener("click", () => {
+
+    output.innerHTML = "";
+
+    originalConsole.log("Panel de depuración limpiado.");
+
+  });
+
+
+
+  toggleBtn.addEventListener("click", () => {
+
+    const hidden = panel.dataset.hidden === "1";
+
+    if (hidden) {
+
+      output.style.display = "";
+
+      clearBtn.style.display = "";
+
+      panel.dataset.hidden = "0";
+
+      toggleBtn.textContent = "Ocultar";
+
+    } else {
+
+      output.style.display = "none";
+
+      clearBtn.style.display = "none";
+
+      panel.dataset.hidden = "1";
+
+      toggleBtn.textContent = "Mostrar";
+
+    }
+
+  });
+
+  originalConsole.log("Panel de depuración inicializado.");
 }
 
 async function initEmployeeModule() {
@@ -786,4 +1012,7 @@ async function initEmployeeModule() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", initEmployeeModule);
+document.addEventListener("DOMContentLoaded", () => {
+  initDebugPanel();
+  initEmployeeModule();
+});

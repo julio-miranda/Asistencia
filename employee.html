@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -90,5 +91,16 @@
   <script src="js/firebase-config.js"></script>
   <script type="module" src="js/services/session.service.js"></script>
   <script type="module" src="js/controllers/employee.controller.js"></script>
+  <div id="debugPanel" class="debug-panel">
+    <div class="debug-panel-header">
+      <strong>Registro de depuración</strong>
+      <div class="debug-panel-actions">
+        <button id="debugToggleBtn" type="button">Ocultar</button>
+        <button id="debugClearBtn" type="button">Limpiar</button>
+      </div>
+    </div>
+    <pre id="debugOutput" class="debug-output"></pre>
+  </div>
 </body>
+
 </html>
