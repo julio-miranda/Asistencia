@@ -295,7 +295,9 @@ import { crearUsuarioCompleto } from "../services/register.service.js";
         createdAt: Date.now()
       };
 
-      const creationResult = await crearUsuarioCompleto(payload);
+      const creationResult = await crearUsuarioCompleto(payload, {
+        saveIdentificationLookup: false
+      });
 
       const authUid = String(
         creationResult?.authUid ||

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -44,6 +43,15 @@
             <label for="identificacion">Identificación</label>
             <input type="text" id="identificacion" name="identificacion" required>
 
+            <label for="telefono">Teléfono</label>
+            <input type="text" id="telefono" name="telefono">
+
+            <label for="direccion">Dirección</label>
+            <textarea id="direccion" name="direccion" rows="3"></textarea>
+
+            <label for="ayuda-economica">Ayuda Económica</label>
+            <input type="number" id="ayuda-economica" name="ayudaEconomica" step="0.01" min="0" value="0">
+
             <label for="nacimiento">Fecha de Nacimiento</label>
             <input type="date" id="nacimiento" name="nacimiento" required>
 
@@ -82,5 +90,4 @@
     <script type="module" src="js/models/perfil.model.js"></script>
     <script type="module" src="js/controllers/admin.perfil.controller.js"></script>
 </body>
-
 </html>

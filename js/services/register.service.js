@@ -3,7 +3,6 @@ export default class RegisterService {
     if (!db || typeof db.collection !== "function") {
       throw new Error("Firestore no está disponible.");
     }
-
     this.db = db;
     this.auth = auth || null;
   }
@@ -19,12 +18,15 @@ export default class RegisterService {
   getAuth() {
     if (this.auth) return this.auth;
 
+
     if (window.firebase && typeof window.firebase.auth === "function") {
       this.auth = window.firebase.auth();
       return this.auth;
     }
 
     return null;
+
+
   }
 
   getDb() {
@@ -34,6 +36,7 @@ export default class RegisterService {
   buildProfilePayload(payload = {}, authUid) {
     const cleanAuthUid = this.normalize(authUid);
     const cleanEmail = this.normalizeEmail(payload.email);
+
 
     return {
       ...payload,
@@ -45,6 +48,8 @@ export default class RegisterService {
       createdAt: payload.createdAt || Date.now(),
       updatedAt: Date.now()
     };
+
+
   }
 
   async createAuthUser(email, password) {
@@ -52,6 +57,7 @@ export default class RegisterService {
     if (!auth) {
       throw new Error("Firebase Auth no está disponible.");
     }
+
 
     const cleanEmail = this.normalizeEmail(email);
     const cleanPassword = String(password || "").trim();
@@ -76,6 +82,8 @@ export default class RegisterService {
       user,
       authUid: user.uid
     };
+
+
   }
 
   async writeUserProfile(authUid, payload = {}) {
@@ -83,6 +91,7 @@ export default class RegisterService {
     if (!cleanAuthUid) {
       throw new Error("authUid inválido para crear perfil.");
     }
+
 
     const data = this.buildProfilePayload(payload, cleanAuthUid);
     const ref = this.db.collection("usuarios").doc(cleanAuthUid);
@@ -93,30 +102,14 @@ export default class RegisterService {
       ref,
       data
     };
-  }
 
-  async writeIdentificationLookup(identificacion, authUid) {
-    const value = this.normalize(identificacion);
-    const uid = this.normalize(authUid);
 
-    if (!value || !uid) {
-      throw new Error("No se pudo crear el índice de identificación.");
-    }
-
-    const ref = this.db.collection("registro_identificaciones").doc(value);
-
-    await ref.set({
-      identificacion: value,
-      authUid: uid,
-      updatedAt: Date.now()
-    }, { merge: true });
-
-    return ref;
   }
 
   async crearUsuarioCompleto(payload = {}, options = {}) {
     const cleanEmail = this.normalizeEmail(payload.email);
     const cleanPassword = String(payload.password || "").trim();
+
 
     if (!cleanEmail) {
       throw new Error("El correo es obligatorio.");
@@ -139,14 +132,9 @@ export default class RegisterService {
     );
 
     let profileWrite = null;
-    let identificationWrite = null;
 
     if (options.saveProfileToFirestore !== false) {
       profileWrite = await this.writeUserProfile(authResult.authUid, profileData);
-    }
-
-    if (options.saveIdentificationLookup !== false && payload.identificacion) {
-      identificationWrite = await this.writeIdentificationLookup(payload.identificacion, authResult.authUid);
     }
 
     return {
@@ -154,9 +142,10 @@ export default class RegisterService {
       user: authResult.user,
       credential: authResult.credential,
       profile: profileData,
-      profileWrite,
-      identificationWrite
+      profileWrite
     };
+
+
   }
 }
 

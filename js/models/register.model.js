@@ -88,11 +88,12 @@ export default class RegisterModel {
     if (!value) return false;
 
     try {
-      const snap = await this.db.collection("registro_identificaciones")
-        .doc(value)
+      const snap = await this.db.collection("usuarios")
+        .where("identificacion", "==", value)
+        .limit(1)
         .get();
 
-      return snap.exists;
+      return !snap.empty;
     } catch (error) {
       console.warn("No se pudo verificar si la identificación existe:", error);
       return false;

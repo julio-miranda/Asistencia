@@ -1,4 +1,3 @@
-/* js/controllers/admin.empleados.controller.js */
 import EmpleadosModel from "../models/empleados.model.js";
 
 (function () {
@@ -83,7 +82,6 @@ import EmpleadosModel from "../models/empleados.model.js";
         const current = document.getElementById("empleado-identificacionNombre");
         if (!current) return null;
 
-
         if (current.tagName && current.tagName.toLowerCase() === "select") {
             current.required = true;
             return current;
@@ -117,14 +115,11 @@ import EmpleadosModel from "../models/empleados.model.js";
         }
 
         return select;
-
-
     }
 
     function obtenerSemanaActual() {
         const hoy = new Date();
         const d = hoy.getDay() || 7;
-
 
         const inicio = new Date(hoy);
         inicio.setDate(hoy.getDate() - d + 1);
@@ -136,8 +131,6 @@ import EmpleadosModel from "../models/empleados.model.js";
             inicio: inicio.toISOString().split("T")[0],
             fin: fin.toISOString().split("T")[0]
         };
-
-
     }
 
     async function hashPasswordSafe(pass) {
@@ -155,15 +148,12 @@ import EmpleadosModel from "../models/empleados.model.js";
         setVisible("cambiar-contrasena-empleado-container", false);
         setVisible("nueva-contrasena-empleado-container", false);
 
-
         const chk = document.getElementById("cambiar-contrasena-empleado");
         if (chk) chk.checked = false;
 
         setRequired("register-password", true);
         setRequired("register-password2", true);
         setRequired("nueva-contrasena-empleado", false);
-
-
     }
 
     function resetPasswordFieldsForEdit() {
@@ -171,21 +161,17 @@ import EmpleadosModel from "../models/empleados.model.js";
         setVisible("cambiar-contrasena-empleado-container", true);
         setVisible("nueva-contrasena-empleado-container", false);
 
-
         const chk = document.getElementById("cambiar-contrasena-empleado");
         if (chk) chk.checked = false;
 
         setRequired("register-password", false);
         setRequired("register-password2", false);
         setRequired("nueva-contrasena-empleado", false);
-
-
     }
 
     function limpiarFormularioEmpleado() {
         const form = document.getElementById("empleado-form");
         if (form) form.reset();
-
 
         setVal("empleado-nombre", "");
         setVal("empleado-email", "");
@@ -196,41 +182,35 @@ import EmpleadosModel from "../models/empleados.model.js";
         setVal("descripcion", "");
         setVal("empleado-isss", "");
         setVal("empleado-afp", "");
+        setVal("empleado-telefono", "");
+        setVal("empleado-direccion", "");
+        setVal("empleado-ayuda-economica", "0");
         setVal("nueva-contrasena-empleado", "");
         setVal("register-password", "");
         setVal("register-password2", "");
-
-
     }
 
     function mostrarSeccionEmpleado(modo) {
         const cont = document.getElementById("empleado-container");
         const tabla = document.getElementById("tabla-empleados");
 
-
         if (cont) cont.style.display = "block";
         if (tabla) tabla.style.display = "none";
 
         const titulo = document.getElementById("titulo-form-empleado");
         if (titulo) titulo.textContent = modo === "edit" ? "Editar Empleado" : "Agregar Empleado";
-
-
     }
 
     function ocultarSeccionEmpleado() {
         const cont = document.getElementById("empleado-container");
         const tabla = document.getElementById("tabla-empleados");
 
-
         if (cont) cont.style.display = "none";
         if (tabla) tabla.style.display = "block";
-
-
     }
 
     async function getSessionContext() {
         const fromWindow = window.adminSessionUserData || null;
-
 
         if (fromWindow && (fromWindow.role || fromWindow.empresa || fromWindow.sucursal)) {
             return {
@@ -259,8 +239,6 @@ import EmpleadosModel from "../models/empleados.model.js";
             sucursal: "",
             sessionData: fromWindow || null
         };
-
-
     }
 
     function hasScopedAdminAccess(context) {
@@ -271,7 +249,6 @@ import EmpleadosModel from "../models/empleados.model.js";
         const sessionReady = hasScopedAdminAccess(sessionContext);
         if (!sessionReady) return null;
 
-
         return {
             role: sessionContext.role,
             empresa: sessionContext.empresa,
@@ -280,8 +257,6 @@ import EmpleadosModel from "../models/empleados.model.js";
             canQueryFirestore: true,
             sessionData: sessionContext.sessionData || null
         };
-
-
     }
 
     async function delay(ms) {
@@ -307,7 +282,6 @@ import EmpleadosModel from "../models/empleados.model.js";
             // noop
         }
 
-
         await refreshSessionCookie();
 
         const sessionContext = await getSessionContext();
@@ -326,8 +300,6 @@ import EmpleadosModel from "../models/empleados.model.js";
         window.adminSucursal = resolved.sucursal;
 
         return resolved;
-
-
     }
 
     async function executeWithSessionRetry(operation, context, task) {
@@ -339,7 +311,6 @@ import EmpleadosModel from "../models/empleados.model.js";
                 await refreshSessionCookie();
                 await delay(300);
 
-
                 const refreshedContext = await ensureAdminContext(`${operation} (reintento)`);
                 if (refreshedContext) {
                     return await task(refreshedContext);
@@ -348,8 +319,6 @@ import EmpleadosModel from "../models/empleados.model.js";
 
             throw error;
         }
-
-
     }
 
     function normalizeScope(value) {
@@ -363,7 +332,6 @@ import EmpleadosModel from "../models/empleados.model.js";
     async function cargarJornadasEnSelect(seleccionadas = []) {
         const select = document.getElementById("empleado-jornada");
         if (!select) return;
-
 
         const context = await getTokenlessContextOrWarn("cargar jornadas");
         if (!context) {
@@ -418,8 +386,6 @@ import EmpleadosModel from "../models/empleados.model.js";
             optError.disabled = true;
             select.appendChild(optError);
         }
-
-
     }
 
     async function cargarEmpleados() {
@@ -428,7 +394,6 @@ import EmpleadosModel from "../models/empleados.model.js";
             console.warn("No hay contexto administrativo válido para cargar empleados.");
             return;
         }
-
 
         const tableEl = document.getElementById("empleadosTable");
         if (!tableEl) return;
@@ -471,10 +436,10 @@ import EmpleadosModel from "../models/empleados.model.js";
                 if (blocked || !authUid) return;
 
                 const acciones = `
-      <button type="button" class="btn-editar-empleado" data-id="${doc.id}" style="background-color:green;">Editar</button>
-      <button type="button" class="btn-eliminar-empleado" data-id="${doc.id}" style="background-color:red;">Eliminar</button>
-      <button type="button" class="btn-viajero-empleado" data-id="${doc.id}" style="background-color:blue;">Viajero</button>
-    `;
+                    <button type="button" class="btn-editar-empleado" data-id="${doc.id}" style="background-color:green;">Editar</button>
+                    <button type="button" class="btn-eliminar-empleado" data-id="${doc.id}" style="background-color:red;">Eliminar</button>
+                    <button type="button" class="btn-viajero-empleado" data-id="${doc.id}" style="background-color:blue;">Viajero</button>
+                `;
 
                 rows.push([
                     escapeHtml(d.nombre || ""),
@@ -482,6 +447,9 @@ import EmpleadosModel from "../models/empleados.model.js";
                     escapeHtml(d.identificacion || ""),
                     escapeHtml(d.nacimiento || ""),
                     escapeHtml(d.email || ""),
+                    escapeHtml(d.telefono || ""),
+                    escapeHtml(d.direccion || ""),
+                    escapeHtml(d.ayudaEconomica ?? ""),
                     escapeHtml(d.descripcion || ""),
                     acciones
                 ]);
@@ -505,14 +473,11 @@ import EmpleadosModel from "../models/empleados.model.js";
         } catch (err) {
             console.error("Error cargando empleados:", err);
         }
-
-
     }
 
     async function agregarEmpleado() {
         const context = await ensureAdminContext("agregar empleado");
         if (!context) return;
-
 
         ensureIdentificacionNombreSelect();
         window.currentEditingEmployeeId = null;
@@ -520,14 +485,11 @@ import EmpleadosModel from "../models/empleados.model.js";
         mostrarSeccionEmpleado("add");
         resetPasswordFieldsForAdd();
         await cargarJornadasEnSelect([]);
-
-
     }
 
     async function editarEmpleado(id) {
         const context = await ensureAdminContext("editar empleado");
         if (!context) return;
-
 
         ensureIdentificacionNombreSelect();
         window.currentEditingEmployeeId = id;
@@ -553,6 +515,9 @@ import EmpleadosModel from "../models/empleados.model.js";
             setVal("descripcion", data.descripcion || "");
             setVal("empleado-isss", data.isss || "");
             setVal("empleado-afp", data.afp || "");
+            setVal("empleado-telefono", data.telefono || "");
+            setVal("empleado-direccion", data.direccion || "");
+            setVal("empleado-ayuda-economica", data.ayudaEconomica ?? 0);
 
             resetPasswordFieldsForEdit();
             await cargarJornadasEnSelect(data.jornadas || []);
@@ -561,14 +526,11 @@ import EmpleadosModel from "../models/empleados.model.js";
             console.error("Error al editar empleado:", error);
             alert("No se pudo abrir el empleado para edición.");
         }
-
-
     }
 
     async function eliminarEmpleado(id) {
         const context = await ensureAdminContext("eliminar empleado");
         if (!context) return;
-
 
         if (!confirm("¿Eliminar empleado?")) return;
 
@@ -604,14 +566,11 @@ import EmpleadosModel from "../models/empleados.model.js";
             console.error("Error eliminando empleado:", e);
             alert("Error al eliminar: " + (e.message || e));
         }
-
-
     }
 
     async function mandarViajero(id) {
         const context = await ensureAdminContext("marcar viajero");
         if (!context) return;
-
 
         try {
             await executeWithSessionRetry("marcar viajero", context, async () => {
@@ -624,13 +583,10 @@ import EmpleadosModel from "../models/empleados.model.js";
             console.error("Error marcando viajero:", e);
             alert("Error marcando viajero: " + (e.message || e));
         }
-
-
     }
 
     async function guardarEmpleado(e) {
         e.preventDefault();
-
 
         const context = await ensureAdminContext("guardar empleado");
         if (!context) return;
@@ -644,6 +600,9 @@ import EmpleadosModel from "../models/empleados.model.js";
         const salarioHRaw = getVal("empleado-salario").trim();
         const nacimiento = getVal("empleado-nacimiento").trim();
         const descripcion = getVal("descripcion").trim();
+        const telefono = getVal("empleado-telefono").trim();
+        const direccion = getVal("empleado-direccion").trim();
+        const ayudaEconomicaRaw = getVal("empleado-ayuda-economica").trim();
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
         if (!nombre) return alert("El nombre es obligatorio.");
@@ -654,6 +613,11 @@ import EmpleadosModel from "../models/empleados.model.js";
         const salarioH = Number(salarioHRaw);
         if (Number.isNaN(salarioH) || salarioH < 0) {
             return alert("El salario por hora debe ser un número válido.");
+        }
+
+        const ayudaEconomica = Number(ayudaEconomicaRaw || 0);
+        if (Number.isNaN(ayudaEconomica) || ayudaEconomica < 0) {
+            return alert("La ayuda económica debe ser un número válido.");
         }
 
         const jornadaSel = document.getElementById("empleado-jornada");
@@ -677,6 +641,9 @@ import EmpleadosModel from "../models/empleados.model.js";
             jornadas: jornadasSeleccionadas,
             isss,
             afp,
+            telefono,
+            direccion,
+            ayudaEconomica,
             sucursal: scope.sucursal,
             empresa: scope.empresa,
             role: "empleado",
@@ -791,8 +758,6 @@ import EmpleadosModel from "../models/empleados.model.js";
             console.error("Error al guardar el empleado:", error);
             alert("Error al guardar el empleado: " + (error.message || error));
         }
-
-
     }
 
     function bindUI() {
@@ -803,7 +768,6 @@ import EmpleadosModel from "../models/empleados.model.js";
                 document.getElementById("navbar-links")?.classList.toggle("active");
             });
         }
-
 
         const logoutBtn = document.getElementById("logout-button");
         if (logoutBtn && !logoutBtn.dataset.bound) {
@@ -868,8 +832,6 @@ import EmpleadosModel from "../models/empleados.model.js";
                 if (btnViajero) return mandarViajero(btnViajero.dataset.id);
             });
         }
-
-
     }
 
     function initPasswordAndFormState() {
@@ -885,7 +847,6 @@ import EmpleadosModel from "../models/empleados.model.js";
             return;
         }
 
-
         bindUI();
         initPasswordAndFormState();
 
@@ -896,8 +857,6 @@ import EmpleadosModel from "../models/empleados.model.js";
         if (document.getElementById("empleadosTable")) {
             await cargarEmpleados();
         }
-
-
     }
 
     document.addEventListener("DOMContentLoaded", init);

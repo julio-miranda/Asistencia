@@ -1,4 +1,3 @@
-/* js/controllers/admin.perfil.controller.js */
 import PerfilModel from "../models/perfil.model.js";
 import { checkUserSession, logout, getSessionData, createSession } from "../services/session.service.js";
 import { hashPassword } from "../services/password.service.js";
@@ -48,7 +47,6 @@ async function obtenerSesion() {
         const sessionInfo = await checkUserSession();
         if (!sessionInfo || !sessionInfo.uid) return null;
 
-
         currentSessionUid = sessionInfo.uid;
         currentSessionData = sessionInfo.userData || null;
 
@@ -57,13 +55,10 @@ async function obtenerSesion() {
         console.warn("Error leyendo sesión:", e);
         return null;
     }
-
-
 }
 
 async function buscarUsuarioPorUid(uid) {
     if (!uid) return null;
-
 
     if (typeof model.getUserById === "function") {
         const byId = await model.getUserById(uid);
@@ -81,13 +76,10 @@ async function buscarUsuarioPorUid(uid) {
     }
 
     return null;
-
-
 }
 
 async function migrarPerfilSiNecesario(doc) {
     if (!doc || !currentSessionUid) return null;
-
 
     const data = doc.data() || {};
     const legacyDocId = doc.id || null;
@@ -134,8 +126,6 @@ async function migrarPerfilSiNecesario(doc) {
             authUid: data.authUid || currentSessionUid
         }
     };
-
-
 }
 
 function resetPasswordFields() {
@@ -143,12 +133,9 @@ function resetPasswordFields() {
     const nuevaCont = document.getElementById("nueva-contrasena-container");
     const nuevaInp = document.getElementById("nueva-contrasena");
 
-
     if (cambiar) cambiar.checked = false;
     if (nuevaCont) nuevaCont.style.display = "none";
     if (nuevaInp) nuevaInp.value = "";
-
-
 }
 
 function bindCommonUI() {
@@ -160,7 +147,6 @@ function bindCommonUI() {
             if (nav) nav.classList.toggle("active");
         });
     }
-
 
     const logoutBtn = document.getElementById("logout-button");
     if (logoutBtn && !logoutBtn.dataset.bound) {
@@ -237,14 +223,11 @@ function bindCommonUI() {
             }, 200);
         });
     }
-
-
 }
 
 function bindFormEvents() {
     const form = document.getElementById("perfil-form");
     if (!form || form.dataset.bound) return;
-
 
     form.dataset.bound = "1";
 
@@ -276,6 +259,9 @@ function bindFormEvents() {
         const email = getValor("email").trim();
         const identificacionNombre = getValor("identificacionNombre").trim();
         const identificacion = getValor("identificacion").trim();
+        const telefono = getValor("telefono").trim();
+        const direccion = getValor("direccion").trim();
+        const ayudaEconomicaRaw = getValor("ayuda-economica").trim();
         const nacimiento = getValor("nacimiento").trim();
         const salarioHRaw = getValor("empleado-salariop").trim();
         const descripcion = getValor("descripcionp").trim();
@@ -313,11 +299,20 @@ function bindFormEvents() {
             return;
         }
 
+        const ayudaEconomica = Number(ayudaEconomicaRaw || 0);
+        if (Number.isNaN(ayudaEconomica) || ayudaEconomica < 0) {
+            alert("La ayuda económica debe ser un número válido.");
+            return;
+        }
+
         const updateData = {
             nombre,
             email,
             identificacionNombre,
             identificacion,
+            telefono,
+            direccion,
+            ayudaEconomica,
             nacimiento,
             salarioH,
             descripcion: descripcion || "",
@@ -365,6 +360,9 @@ function bindFormEvents() {
                 sucursal: updateData.sucursal || perfilDataCache?.sucursal || "",
                 email: updateData.email || "",
                 nombre: updateData.nombre || "",
+                telefono: updateData.telefono || "",
+                direccion: updateData.direccion || "",
+                ayudaEconomica: updateData.ayudaEconomica ?? 0,
                 docId: perfilDocId,
                 activo: perfilDataCache?.activo !== undefined ? perfilDataCache.activo : true,
                 blocked: perfilDataCache?.blocked === true
@@ -397,14 +395,11 @@ function bindFormEvents() {
             alert("Error al actualizar: " + (error.message || error));
         }
     });
-
-
 }
 
 async function cargarPerfil() {
     const perfilContainer = document.getElementById("perfil-container");
     const form = document.getElementById("perfil-form");
-
 
     if (!perfilContainer || !form) return;
 
@@ -453,6 +448,9 @@ async function cargarPerfil() {
         setValor("email", data.email);
         setValor("identificacionNombre", data.identificacionNombre);
         setValor("identificacion", data.identificacion);
+        setValor("telefono", data.telefono);
+        setValor("direccion", data.direccion);
+        setValor("ayuda-economica", data.ayudaEconomica ?? 0);
         setValor("nacimiento", data.nacimiento);
         setValor("empleado-salariop", data.salarioH);
         setValor("descripcionp", data.descripcion);
@@ -481,8 +479,6 @@ async function cargarPerfil() {
         console.error("Error al cargar perfil:", error);
         alert("Error al cargar perfil: " + (error.message || error));
     }
-
-
 }
 
 window.verPerfil = cargarPerfil;

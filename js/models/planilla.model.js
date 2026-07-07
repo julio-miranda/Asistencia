@@ -6,7 +6,6 @@ export default class PlanillaModel {
         this.db = db;
     }
 
-
     async getEmpleadosByScope(empresa = "", sucursal = "") {
         const query = this.db.collection("usuarios")
             .where("empresa", "==", String(empresa).trim())
