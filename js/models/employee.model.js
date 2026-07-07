@@ -6,17 +6,10 @@ export default class EmployeeModel {
     this.db = db;
   }
 
-  // --- Helpers ---
-
   _cleanString(value) {
     return String(value || "").trim();
   }
 
-  // --- Usuarios ---
-
-  /**
-   * Busca un usuario por authUid. Devuelve Promise<null|DocumentSnapshot>.
-   */
   async getUserByAuthUid(uid) {
     try {
       const clean = this._cleanString(uid);
@@ -34,9 +27,6 @@ export default class EmployeeModel {
     }
   }
 
-  /**
-   * Busca un usuario por email. Devuelve Promise<null|DocumentSnapshot>.
-   */
   async getUserByEmail(email) {
     try {
       const clean = this._cleanString(email);
@@ -54,10 +44,6 @@ export default class EmployeeModel {
     }
   }
 
-  /**
-   * Intenta buscar por authUid primero, luego por email.
-   * Devuelve Promise<null|DocumentSnapshot>.
-   */
   async getUserByLogin(login) {
     const value = this._cleanString(login);
     if (!value) return null;
@@ -72,10 +58,6 @@ export default class EmployeeModel {
     }
   }
 
-  /**
-   * Crea o actualiza el documento canónico usuarios/{authUid}.
-   * profile must contain at least authUid (or id). Devuelve el DocumentReference.
-   */
   async createOrUpdateUser(profile = {}) {
     try {
       const authUid = this._cleanString(profile.authUid || profile.id);
@@ -96,19 +78,16 @@ export default class EmployeeModel {
     }
   }
 
-  /**
-   * Asegura que exista un documento usuarios/{authUid}. Si no existe, lo crea con profileFallback.
-   * Devuelve DocumentSnapshot o null.
-   */
   async ensureUserByAuthUid(authUid, profileFallback = {}) {
     try {
       const clean = this._cleanString(authUid);
       if (!clean) return null;
 
       const existing = await this.getUserByAuthUid(clean);
-      if (existing) return existing;
+      if (existing && existing.exists) {
+        return existing;
+      }
 
-      // Crear documento canónico en usuarios/{authUid}
       const ref = this.db.collection("usuarios").doc(clean);
       const data = {
         authUid: clean,
@@ -120,6 +99,12 @@ export default class EmployeeModel {
         nombre: profileFallback.nombre || "",
         blocked: profileFallback.blocked === true,
         activo: profileFallback.activo !== undefined ? !!profileFallback.activo : true,
+        jornadas: Array.isArray(profileFallback.jornadas) ? profileFallback.jornadas : [],
+        jornada: profileFallback.jornada || "",
+        jornadaId: profileFallback.jornadaId || "",
+        jornadaData: profileFallback.jornadaData || null,
+        jornadasData: Array.isArray(profileFallback.jornadasData) ? profileFallback.jornadasData : [],
+        jornadasDetalle: Array.isArray(profileFallback.jornadasDetalle) ? profileFallback.jornadasDetalle : [],
         ...profileFallback
       };
 
@@ -132,12 +117,11 @@ export default class EmployeeModel {
     }
   }
 
-  // --- Jornadas ---
-
   async getJornadaById(id) {
     try {
       const clean = this._cleanString(id);
       if (!clean) return null;
+
       const doc = await this.db.collection("jornadas").doc(clean).get();
       return doc && doc.exists ? doc : null;
     } catch (e) {
@@ -155,7 +139,6 @@ export default class EmployeeModel {
       if (!cleanIds.length) return [];
 
       const results = await Promise.all(cleanIds.map(id => this.getJornadaById(id)));
-      // Filtrar nulls y devolver snapshots existentes
       return results.filter(Boolean);
     } catch (e) {
       console.warn("Error getJornadasByIds:", e);
@@ -163,12 +146,6 @@ export default class EmployeeModel {
     }
   }
 
-  // --- Empresas ---
-
-  /**
-   * Busca una empresa por campos empresa/sucursal.
-   * Devuelve DocumentSnapshot o null.
-   */
   async getEmpresaByScope(empresa = "", sucursal = "") {
     try {
       const e = this._cleanString(empresa);
@@ -189,27 +166,17 @@ export default class EmployeeModel {
     }
   }
 
-  /**
-   * Crea una entrada en empresas solo si no existe una con la misma empresa/sucursal.
-   * Devuelve DocumentReference o null.
-   *
-   * Nota: ahora acepta sucursal vacía (se almacenará como cadena vacía) y devuelve
-   * consistentemente un DocumentReference cuando crea, o la referencia existente.
-   */
   async createEmpresaLocationIfNeeded(empresa, sucursal, lat, lng) {
     try {
       const e = this._cleanString(empresa);
       const s = this._cleanString(sucursal);
       if (!e) return null;
 
-      // Comprobar existencia
       const existing = await this.getEmpresaByScope(e, s);
       if (existing) {
-        // devolver la referencia del documento existente para consistencia
         return existing.ref || (existing && existing.id ? this.db.collection("empresas").doc(existing.id) : null);
       }
 
-      // Crear documento con sucursal (puede ser cadena vacía)
       const ref = await this.db.collection("empresas").add({
         empresa: e,
         sucursal: s,
@@ -225,17 +192,12 @@ export default class EmployeeModel {
     }
   }
 
-  // --- Asistencias ---
-
   createAsistenciaRef(userId, fecha) {
     const u = this._cleanString(userId);
     const f = this._cleanString(fecha);
     return this.db.collection("asistencias").doc(`${u}_${f}`);
   }
 
-  /**
-   * Obtiene una asistencia por userId y fecha. Devuelve DocumentSnapshot o null.
-   */
   async getAsistencia(userId, fecha) {
     try {
       const ref = this.createAsistenciaRef(userId, fecha);
@@ -247,10 +209,6 @@ export default class EmployeeModel {
     }
   }
 
-  /**
-   * Actualiza una asistencia. Devuelve true si se actualizó correctamente.
-   * ref puede ser DocumentReference o string (path).
-   */
   async updateAsistencia(ref, data) {
     try {
       if (!ref) throw new Error("Referencia de asistencia inválida.");
@@ -263,10 +221,6 @@ export default class EmployeeModel {
     }
   }
 
-  /**
-   * Crea o reemplaza una asistencia. Devuelve true si se escribió correctamente.
-   * ref puede ser DocumentReference o string (path).
-   */
   async setAsistencia(ref, data) {
     try {
       if (!ref) throw new Error("Referencia de asistencia inválida.");

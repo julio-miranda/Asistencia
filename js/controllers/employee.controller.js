@@ -71,7 +71,7 @@ function extraerTextoQr(decodedText) {
 
   try {
     texto = decodeURIComponent(texto);
-  } catch (_) { }
+  } catch (_) {}
 
   texto = texto.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
 
@@ -84,9 +84,8 @@ function extraerTextoQr(decodedText) {
         url.searchParams.get("q") ||
         url.pathname.split("/").filter(Boolean).pop();
 
-
       if (empresa) return empresa.trim();
-    } catch (_) { }
+    } catch (_) {}
   }
 
   return texto;
@@ -120,19 +119,16 @@ function getCurrentPositionPromise(options = {}) {
       return;
     }
 
-
     navigator.geolocation.getCurrentPosition(resolve, reject, {
       ...defaultOptions,
       ...options
     });
-
-
   });
 }
 
 function normalizeArray(value) {
   if (!Array.isArray(value)) return [];
-  return value.map(v => String(v || "").trim()).filter(Boolean);
+  return [...new Set(value.map(v => String(v || "").trim()).filter(Boolean))];
 }
 
 function resolveJornadasFromData(data) {
@@ -145,6 +141,70 @@ function resolveJornadasFromData(data) {
   return [];
 }
 
+function buildCanonicalUserProfile(source = {}, sessionData = null, currentUser = null, uid = "") {
+  const jornadas = resolveJornadasFromData(source);
+
+  return {
+    authUid: String(uid || source.authUid || source.id || "").trim(),
+    docId: String(uid || source.authUid || source.id || "").trim(),
+    role: String(source.role || sessionData?.role || "empleado").trim(),
+    empresa: String(source.empresa || sessionData?.empresa || "").trim(),
+    sucursal: String(source.sucursal || sessionData?.sucursal || "").trim(),
+    email: String(source.email || sessionData?.email || currentUser?.email || "").trim(),
+    nombre: String(source.nombre || sessionData?.nombre || currentUser?.displayName || "").trim(),
+    blocked: source.blocked === true,
+    activo: source.activo !== undefined ? !!source.activo : true,
+    jornada: String(source.jornada || sessionData?.jornada || sessionData?.jornadaId || "").trim(),
+    jornadaId: String(source.jornadaId || sessionData?.jornadaId || source.jornada || "").trim(),
+    jornadas,
+    jornadaData: source.jornadaData || null,
+    jornadasData: Array.isArray(source.jornadasData) ? source.jornadasData : [],
+    jornadasDetalle: Array.isArray(source.jornadasDetalle) ? source.jornadasDetalle : []
+  };
+}
+
+function resolveJornadaDataFromUser(userData, jornadaId) {
+  if (!userData) return null;
+
+  const jid = String(jornadaId || userData.jornada || userData.jornadaId || "").trim();
+  if (!jid) return null;
+
+  if (userData.jornadaData && typeof userData.jornadaData === "object") {
+    const candidateId = String(userData.jornadaData.id || userData.jornadaData.jornadaId || "").trim();
+    if (!candidateId || candidateId === jid) {
+      return {
+        id: jid,
+        ...userData.jornadaData
+      };
+    }
+  }
+
+  const arrays = [userData.jornadasData, userData.jornadasDetalle];
+  for (const arr of arrays) {
+    if (!Array.isArray(arr)) continue;
+    const found = arr.find(j => String(j?.id || j?.jornadaId || "").trim() === jid);
+    if (found) {
+      return {
+        id: String(found.id || found.jornadaId || jid).trim(),
+        ...found
+      };
+    }
+  }
+
+  return {
+    id: jid,
+    nombre: userData.jornadaNombre || userData.nombreJornada || "",
+    horaEntrada: userData.horaEntrada || "",
+    horaSalida: userData.horaSalida || ""
+  };
+}
+
+function horarioDisponible(jornadaData) {
+  const horaEntrada = String(jornadaData?.horaEntrada || jornadaData?.entrada || "").trim();
+  const horaSalida = String(jornadaData?.horaSalida || jornadaData?.salida || "").trim();
+  return Boolean(horaEntrada && horaSalida);
+}
+
 async function waitForFirebaseUser(timeoutMs = 12000) {
   const auth = window.firebase?.auth ? window.firebase.auth() : null;
   if (!auth) return null;
@@ -155,7 +215,6 @@ async function waitForFirebaseUser(timeoutMs = 12000) {
 
   return await new Promise((resolve, reject) => {
     let done = false;
-
 
     const timer = setTimeout(() => {
       if (done) return;
@@ -175,15 +234,12 @@ async function waitForFirebaseUser(timeoutMs = 12000) {
       clearTimeout(timer);
       reject(e);
     }
-
-
   });
 }
 
 async function obtenerSesionUid() {
   try {
     if (currentEmployeeUid) return currentEmployeeUid;
-
 
     const sessionData = await getSessionData().catch(() => null);
     if (sessionData?.uid) return String(sessionData.uid).trim();
@@ -192,13 +248,37 @@ async function obtenerSesionUid() {
     if (auth?.currentUser?.uid) {
       return String(auth.currentUser.uid).trim();
     }
-
-
   } catch (e) {
     console.warn("Error leyendo sesión:", e);
   }
 
   return null;
+}
+
+async function sincronizarPerfilCanonico(uid, sourceData = null) {
+  try {
+    const sessionData = await getSessionData().catch(() => null);
+    const auth = window.firebase?.auth ? window.firebase.auth() : null;
+    const currentUser = auth?.currentUser || null;
+
+    const profile = buildCanonicalUserProfile(sourceData || {}, sessionData, currentUser, uid);
+    const snap = await model.ensureUserByAuthUid(uid, profile);
+
+    if (snap && snap.exists) {
+      currentEmployeeDocId = snap.id;
+      currentEmployeeData = snap.data() || {};
+      return {
+        id: snap.id,
+        ...currentEmployeeData,
+        jornadas: resolveJornadasFromData(currentEmployeeData)
+      };
+    }
+
+    return null;
+  } catch (e) {
+    console.warn("No se pudo sincronizar el perfil canónico:", e);
+    return null;
+  }
 }
 
 async function obtenerUsuarioEmpleadoActual(forceReload = false) {
@@ -218,8 +298,6 @@ async function obtenerUsuarioEmpleadoActual(forceReload = false) {
 
   try {
     const sessionData = await getSessionData().catch(() => null);
-
-
     const auth = window.firebase?.auth ? window.firebase.auth() : null;
     const currentUser = auth?.currentUser || null;
 
@@ -234,41 +312,33 @@ async function obtenerUsuarioEmpleadoActual(forceReload = false) {
     }
 
     if (!doc) {
-      const fallbackProfile = {
-        authUid: uid,
-        role: sessionData?.role || "empleado",
-        empresa: sessionData?.empresa || "",
-        sucursal: sessionData?.sucursal || "",
-        jornadas: sessionData?.jornadas || [],
-        jornada: sessionData?.jornada || sessionData?.jornadaId || "",
-        email: sessionData?.email || currentUser?.email || "",
-        nombre: sessionData?.nombre || currentUser?.displayName || "",
-        blocked: false,
-        activo: true,
-        docId: uid
-      };
+      const fallbackProfile = buildCanonicalUserProfile({}, sessionData, currentUser, uid);
+      const ensured = await model.ensureUserByAuthUid(uid, fallbackProfile);
 
-      try {
-        const ensured = await model.ensureUserByAuthUid(uid, fallbackProfile);
-        if (ensured && ensured.exists) {
-          currentEmployeeDocId = ensured.id || uid;
-          currentEmployeeData = ensured.data() || {};
-          return {
-            id: currentEmployeeDocId,
-            ...currentEmployeeData,
-            jornadas: resolveJornadasFromData(currentEmployeeData)
-          };
-        }
-      } catch (mErr) {
-        console.warn("No se pudo autoprovisionar el perfil del usuario:", mErr);
+      if (ensured && ensured.exists) {
+        currentEmployeeDocId = ensured.id;
+        currentEmployeeData = ensured.data() || {};
+        return {
+          id: ensured.id,
+          ...currentEmployeeData,
+          jornadas: resolveJornadasFromData(currentEmployeeData)
+        };
       }
 
-      doc = await model.getUserByAuthUid(uid);
+      return null;
     }
 
     if (doc && doc.exists) {
       currentEmployeeDocId = doc.id;
       currentEmployeeData = doc.data() || {};
+
+      if (String(doc.id).trim() !== String(uid).trim()) {
+        const canonical = await sincronizarPerfilCanonico(uid, currentEmployeeData);
+        if (canonical) return canonical;
+      } else {
+        await sincronizarPerfilCanonico(uid, currentEmployeeData).catch(() => null);
+      }
+
       return {
         id: doc.id,
         ...currentEmployeeData,
@@ -277,8 +347,6 @@ async function obtenerUsuarioEmpleadoActual(forceReload = false) {
     }
 
     return null;
-
-
   } catch (e) {
     console.error("Error buscando usuario actual:", e);
     return null;
@@ -305,7 +373,6 @@ function checkLocation(successCallback, errorCallback) {
       const accuracy = position.coords.accuracy;
       console.log(`Precisión GPS: ${accuracy}m`);
 
-
       if (accuracy > 50) {
         alert(`La señal GPS no es lo suficientemente precisa (${accuracy.toFixed(1)} m). Intenta nuevamente en un lugar abierto.`);
         errorCallback && errorCallback();
@@ -328,8 +395,6 @@ function checkLocation(successCallback, errorCallback) {
       errorCallback && errorCallback();
     },
     { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-
-
   );
 }
 
@@ -338,7 +403,6 @@ function showJustificationModal() {
     const modal = document.getElementById("justificationModal");
     const textarea = document.getElementById("justificationText");
     const saveButton = document.getElementById("saveJustificationButton");
-
 
     if (!modal || !textarea || !saveButton) {
       const fallback = prompt("Ingrese la justificación de su llegada tarde:");
@@ -357,8 +421,6 @@ function showJustificationModal() {
     };
 
     saveButton.addEventListener("click", handler);
-
-
   });
 }
 
@@ -384,7 +446,6 @@ async function tryRenderScannerIfNeeded() {
       alert("No se cargó la librería del lector QR.");
       return;
     }
-
 
     if (scannerActivo) return;
 
@@ -421,8 +482,6 @@ async function tryRenderScannerIfNeeded() {
     html5QrcodeScanner = new Html5QrcodeScanner("reader", config, false);
     scannerActivo = true;
     html5QrcodeScanner.render(onScanSuccess, onScanError);
-
-
   } catch (err) {
     scannerActivo = false;
     console.error("Error iniciando scanner:", err);
@@ -470,7 +529,6 @@ async function onScanSuccess(decodedText) {
       return;
     }
 
-
     const empresa = userData.empresa || "";
     const qrEmpresa = normalizarTexto(rawText);
     const empresaNormalizada = normalizarTexto(empresa);
@@ -487,8 +545,6 @@ async function onScanSuccess(decodedText) {
 
     await stopScanner();
     await registrarAsistencia();
-
-
   } catch (err) {
     console.error("Error al procesar QR:", err);
     alert("Error al procesar el QR. Intenta nuevamente.");
@@ -514,7 +570,6 @@ async function registrarAsistencia() {
   try {
     const userData = await obtenerUsuarioEmpleadoActual(true);
 
-
     if (!userData) {
       cerrarSesionPorError("Usuario no encontrado. Se cerrará la sesión.");
       return;
@@ -535,52 +590,41 @@ async function registrarAsistencia() {
       jornadas = jornadasRefrescadas;
     }
 
-    if (jornadas.length === 1) {
-      await procesarJornada(jornadas[0], userData, now, hour, fechaHoy);
+    if (jornadas.length > 1) {
+      const select = document.getElementById("jornadasSelect");
+      const btnConfirmar = document.getElementById("btnConfirmarJornada");
+
+      if (!select || !btnConfirmar) {
+        alert("Controles de selección de jornada no disponibles.");
+        return;
+      }
+
+      select.innerHTML = "";
+
+      jornadas.forEach((jornadaId) => {
+        const jornadaData = resolveJornadaDataFromUser(userData, jornadaId) || {};
+        const opt = document.createElement("option");
+        opt.value = jornadaId;
+        opt.textContent = `${jornadaData.nombre || jornadaId}`;
+        select.appendChild(opt);
+      });
+
+      select.style.display = "";
+      btnConfirmar.style.display = "";
+
+      const handler = async () => {
+        const jornadaId = select.value;
+        select.style.display = "none";
+        btnConfirmar.style.display = "none";
+        btnConfirmar.removeEventListener("click", handler);
+        await procesarJornada(jornadaId, userData, now, hour, fechaHoy);
+      };
+
+      btnConfirmar.addEventListener("click", handler);
       return;
     }
 
-    const select = document.getElementById("jornadasSelect");
-    const btnConfirmar = document.getElementById("btnConfirmarJornada");
-
-    if (!select || !btnConfirmar) {
-      alert("Controles de selección de jornada no disponibles.");
-      return;
-    }
-
-    select.innerHTML = "";
-
-    const docs = await model.getJornadasByIds(jornadas);
-
-    docs.forEach(doc => {
-      if (!doc || !doc.exists) return;
-
-      const d = doc.data() || {};
-      const opt = document.createElement("option");
-      opt.value = doc.id;
-      opt.textContent = `${d.nombre || doc.id} (${d.horaEntrada || "??:??"} - ${d.horaSalida || "??:??"})`;
-      select.appendChild(opt);
-    });
-
-    if (!select.options.length) {
-      cerrarSesionPorError("No se pudieron cargar tus jornadas. Contacta con el administrador.");
-      return;
-    }
-
-    select.style.display = "";
-    btnConfirmar.style.display = "";
-
-    const handler = async () => {
-      const jornadaId = select.value;
-      select.style.display = "none";
-      btnConfirmar.style.display = "none";
-      btnConfirmar.removeEventListener("click", handler);
-      await procesarJornada(jornadaId, userData, now, hour, fechaHoy);
-    };
-
-    btnConfirmar.addEventListener("click", handler);
-
-
+    await procesarJornada(jornadas[0], userData, now, hour, fechaHoy);
   } catch (err) {
     console.error("Error registrarAsistencia:", err);
     alert(`Error al registrar asistencia: ${err.message || err}`);
@@ -589,18 +633,19 @@ async function registrarAsistencia() {
 
 async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
   try {
-    const jornadaDoc = await model.getJornadaById(jornadaId);
+    const jornadaData = resolveJornadaDataFromUser(userData, jornadaId);
 
-
-    if (!jornadaDoc || !jornadaDoc.exists) {
-      alert("Error: Jornada no encontrada.");
+    if (!jornadaData) {
+      alert("No se pudo resolver la jornada del usuario.");
+      scanProcesado = false;
+      setTimeout(() => tryRenderScannerIfNeeded(), 1200);
       return;
     }
 
-    const jornadaData = jornadaDoc.data() || {};
     const jornadaNombre = jornadaData.nombre || "";
-    const horaEntrada = jornadaData.horaEntrada || "00:00";
-    const horaSalida = jornadaData.horaSalida || "00:00";
+    const horaEntrada = String(jornadaData.horaEntrada || jornadaData.entrada || "").trim();
+    const horaSalida = String(jornadaData.horaSalida || jornadaData.salida || "").trim();
+    const puedeValidarHorario = horarioDisponible(jornadaData);
 
     const { empresa, sucursal } = userData;
 
@@ -617,6 +662,8 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
       await model.createEmpresaLocationIfNeeded(empresa, sucursal, allowedLat, allowedLng);
     } else {
       alert("La geolocalización no está soportada por este navegador.");
+      scanProcesado = false;
+      setTimeout(() => tryRenderScannerIfNeeded(), 1200);
       return;
     }
 
@@ -625,8 +672,12 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
       const asistenciaDoc = await asistenciaRef.get();
 
       if (!asistenciaDoc.exists) {
-        const entradaHour = (horaEntrada || "00:00").split(":")[0] || "0";
-        const status = hour >= parseInt(entradaHour, 10) ? "Tarde" : "A tiempo";
+        let status = "A tiempo";
+
+        if (puedeValidarHorario) {
+          const entradaHour = (horaEntrada || "00:00").split(":")[0] || "0";
+          status = hour >= parseInt(entradaHour, 10) ? "Tarde" : "A tiempo";
+        }
 
         const baseData = {
           userId: userData.id,
@@ -652,7 +703,7 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
           }
 
           baseData.justificacion = justif;
-          mostrarQrResultado(`Jornada: ${jornadaNombre} (${horaEntrada} - ${horaSalida})`);
+          mostrarQrResultado(`Jornada: ${jornadaNombre || jornadaId} (${horaEntrada} - ${horaSalida})`);
         }
 
         await model.setAsistencia(asistenciaRef, baseData);
@@ -671,8 +722,6 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
       scanProcesado = false;
       setTimeout(() => tryRenderScannerIfNeeded(), 1200);
     });
-
-
   } catch (err) {
     console.error("Error en procesarJornada:", err);
     alert(`Error al procesar jornada: ${err.message || err}`);
@@ -698,7 +747,6 @@ async function initEmployeeModule() {
   try {
     const authUser = await waitForFirebaseUser().catch(() => null);
     const userDataFinal = await obtenerUsuarioEmpleadoActual(true);
-
 
     if (!authUser && !userDataFinal) {
       cerrarSesionPorError("No se pudo validar la sesión.");
@@ -732,8 +780,6 @@ async function initEmployeeModule() {
     }
 
     tryRenderScannerIfNeeded();
-
-
   } catch (err) {
     console.error("Error al inicializar el módulo empleado:", err);
     cerrarSesionPorError("Error al inicializar el módulo empleado.");
