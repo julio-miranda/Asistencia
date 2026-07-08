@@ -146,7 +146,7 @@ function buildCanonicalUserProfile(source = {}, sessionData = null, currentUser 
 
   return {
     authUid: String(uid || source.authUid || source.id || "").trim(),
-    docId: String(uid || source.docId || source.id || "").trim(),
+    docId: String(source.docId || source.id || "").trim(),
     role: String(source.role || sessionData?.role || "empleado").trim(),
     empresa: String(source.empresa || sessionData?.empresa || "").trim(),
     sucursal: String(source.sucursal || sessionData?.sucursal || "").trim(),
@@ -697,7 +697,7 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
 
           const baseData = {
             authUid: uid || userData.authUid || "",
-            userId: uid || userData.docId || "",
+            userId: userData.docId || "",
             user: userData.nombre,
             empresa,
             sucursal,
@@ -922,6 +922,6 @@ async function initEmployeeModule() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  initDebugPanel();
+  //initDebugPanel();
   initEmployeeModule();
 });
