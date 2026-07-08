@@ -1,5 +1,3 @@
-// js/controllers/employee.controller.js
-
 import EmployeeModel from "../models/employee.model.js";
 import { getSessionData, logout } from "../services/session.service.js";
 
@@ -148,7 +146,7 @@ function buildCanonicalUserProfile(source = {}, sessionData = null, currentUser 
 
   return {
     authUid: String(uid || source.authUid || source.id || "").trim(),
-    docId: String(uid || source.authUid || source.id || "").trim(),
+    docId: String(uid || source.docId || source.id || "").trim(),
     role: String(source.role || sessionData?.role || "empleado").trim(),
     empresa: String(source.empresa || sessionData?.empresa || "").trim(),
     sucursal: String(source.sucursal || sessionData?.sucursal || "").trim(),
@@ -640,6 +638,8 @@ async function registrarAsistencia() {
 }
 
 async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
+  const uid = await obtenerSesionUid();
+
   try {
     const jornadaData = resolveJornadaDataFromUser(userData, jornadaId);
 
@@ -676,53 +676,67 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
     }
 
     checkLocation(async () => {
-      const asistenciaRef = model.createAsistenciaRef(userData.id, fechaHoy);
-      const asistenciaDoc = await asistenciaRef.get();
+      try {
+        const asistenciaRef = model.createAsistenciaRef(uid, fechaHoy);
 
-      if (!asistenciaDoc.exists) {
-        let status = "A tiempo";
-
-        if (puedeValidarHorario) {
-          const entradaHour = (horaEntrada || "00:00").split(":")[0] || "0";
-          status = hour >= parseInt(entradaHour, 10) ? "Tarde" : "A tiempo";
+        let asistenciaDoc = null;
+        try {
+          asistenciaDoc = await asistenciaRef.get();
+        } catch (readErr) {
+          console.warn("No se pudo leer la asistencia, se asumirá que no existe:", readErr);
+          asistenciaDoc = { exists: false };
         }
 
-        const baseData = {
-          authUid: uid,
-          userId: userData.id,
-          user: userData.nombre,
-          empresa,
-          sucursal,
-          fecha: fechaHoy,
-          jornadaId,
-          jornadaNombre,
-          entrada: now.toLocaleTimeString(),
-          salida: null,
-          status
-        };
+        if (!asistenciaDoc.exists) {
+          let status = "A tiempo";
 
-        if (status === "Tarde") {
-          const justif = await showJustificationModal();
-
-          if (!justif) {
-            alert("Debes justificar tu llegada tarde.");
-            scanProcesado = false;
-            setTimeout(() => tryRenderScannerIfNeeded(), 1200);
-            return;
+          if (puedeValidarHorario) {
+            const entradaHour = (horaEntrada || "00:00").split(":")[0] || "0";
+            status = hour >= parseInt(entradaHour, 10) ? "Tarde" : "A tiempo";
           }
 
-          baseData.justificacion = justif;
-          mostrarQrResultado(`Jornada: ${jornadaNombre || jornadaId} (${horaEntrada || "??:??"} - ${horaSalida || "??:??"})`);
+          const baseData = {
+            authUid: uid || userData.authUid || "",
+            userId: uid || userData.docId || "",
+            user: userData.nombre,
+            empresa,
+            sucursal,
+            fecha: fechaHoy,
+            jornadaId,
+            jornadaNombre,
+            entrada: now.toLocaleTimeString(),
+            salida: null,
+            status
+          };
+
+          if (status === "Tarde") {
+            const justif = await showJustificationModal();
+
+            if (!justif) {
+              alert("Debes justificar tu llegada tarde.");
+              scanProcesado = false;
+              setTimeout(() => tryRenderScannerIfNeeded(), 1200);
+              return;
+            }
+
+            baseData.justificacion = justif;
+            mostrarQrResultado(`Jornada: ${jornadaNombre || jornadaId} (${horaEntrada || "??:??"} - ${horaSalida || "??:??"})`);
+          }
+
+          await model.setAsistencia(asistenciaRef, baseData);
+          mostrarMensajeGeneral("Entrada registrada.");
+        } else {
+          await model.updateAsistencia(asistenciaRef, { salida: now.toLocaleTimeString() });
+          mostrarMensajeGeneral("Salida registrada.");
         }
 
-        await model.setAsistencia(asistenciaRef, baseData);
-        mostrarMensajeGeneral("Entrada registrada.");
-      } else {
-        await model.updateAsistencia(asistenciaRef, { salida: now.toLocaleTimeString() });
-        mostrarMensajeGeneral("Salida registrada.");
+        scanProcesado = false;
+      } catch (innerErr) {
+        console.error("Error interno al guardar asistencia:", innerErr);
+        alert(`Error al registrar asistencia: ${innerErr.message || innerErr}`);
+        scanProcesado = false;
+        setTimeout(() => tryRenderScannerIfNeeded(), 1200);
       }
-
-      scanProcesado = false;
     }, distance => {
       alert(distance !== undefined
         ? `No estás en la ubicación permitida. Distancia: ${distance.toFixed(2)} m.`
@@ -751,217 +765,112 @@ function initUI() {
 }
 
 const DEBUG_MAX_LINES = 120;
-
 let debugPanelReady = false;
-
 let originalConsole = null;
 
-
-
 function safeStringify(value) {
-
   if (value instanceof Error) {
-
     return `${value.name}: ${value.message}\n${value.stack || ""}`.trim();
-
   }
-
-
 
   if (typeof value === "string") return value;
-
   if (value === undefined) return "undefined";
-
   if (value === null) return "null";
 
-
-
   try {
-
     return JSON.stringify(value, null, 2);
-
   } catch (_) {
-
     try {
-
       return String(value);
-
     } catch (_) {
-
       return "[No serializable]";
-
     }
-
   }
-
 }
-
-
 
 function formatDebugLine(level, args) {
-
   const ts = new Date().toLocaleTimeString();
-
   const text = args.map(safeStringify).join(" ");
-
   return `[${ts}] [${level.toUpperCase()}] ${text}`;
-
 }
-
-
 
 function appendDebugLine(level, args) {
-
   const output = document.getElementById("debugOutput");
-
   if (!output) return;
 
-
-
   const line = document.createElement("div");
-
   line.textContent = formatDebugLine(level, args);
-
   output.appendChild(line);
 
-
-
   while (output.childNodes.length > DEBUG_MAX_LINES) {
-
     output.removeChild(output.firstChild);
-
   }
-
-
 
   output.scrollTop = output.scrollHeight;
-
 }
 
-
-
 function initDebugPanel() {
-
   if (debugPanelReady) return;
-
   debugPanelReady = true;
 
-
-
   const panel = document.getElementById("debugPanel");
-
   const output = document.getElementById("debugOutput");
-
   const toggleBtn = document.getElementById("debugToggleBtn");
-
   const clearBtn = document.getElementById("debugClearBtn");
 
-
-
-  if (!panel || !output || !toggleBtn || !clearBtn) {
-
-    return;
-
-  }
-
-
+  if (!panel || !output || !toggleBtn || !clearBtn) return;
 
   originalConsole = {
-
     log: console.log.bind(console),
-
     warn: console.warn.bind(console),
-
     error: console.error.bind(console),
-
     info: console.info.bind(console),
-
     debug: console.debug ? console.debug.bind(console) : console.log.bind(console)
-
   };
 
-
-
   ["log", "warn", "error", "info", "debug"].forEach((level) => {
-
     console[level] = (...args) => {
-
       try {
-
         originalConsole[level](...args);
-
-      } catch (_) { }
-
+      } catch (_) {}
       appendDebugLine(level, args);
-
     };
-
   });
-
-
 
   window.addEventListener("error", (event) => {
-
     const message = event?.message || "Error global";
-
-    const source = event?.filename ? `${event.filename}:${event.lineno || 0}:${event.colno || 0}` : "";
-
+    const source = event?.filename
+      ? `${event.filename}:${event.lineno || 0}:${event.colno || 0}`
+      : "";
     console.error(message, source, event?.error || "");
-
   });
-
-
 
   window.addEventListener("unhandledrejection", (event) => {
-
     const reason = event?.reason instanceof Error
-
       ? event.reason
-
       : safeStringify(event?.reason);
-
     console.error("Promesa rechazada sin manejar:", reason);
-
   });
-
-
 
   clearBtn.addEventListener("click", () => {
-
     output.innerHTML = "";
-
     originalConsole.log("Panel de depuración limpiado.");
-
   });
 
-
-
   toggleBtn.addEventListener("click", () => {
-
     const hidden = panel.dataset.hidden === "1";
 
     if (hidden) {
-
       output.style.display = "";
-
       clearBtn.style.display = "";
-
       panel.dataset.hidden = "0";
-
       toggleBtn.textContent = "Ocultar";
-
     } else {
-
       output.style.display = "none";
-
       clearBtn.style.display = "none";
-
       panel.dataset.hidden = "1";
-
       toggleBtn.textContent = "Mostrar";
-
     }
-
   });
 
   originalConsole.log("Panel de depuración inicializado.");

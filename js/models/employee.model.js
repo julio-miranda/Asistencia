@@ -117,35 +117,6 @@ export default class EmployeeModel {
     }
   }
 
-  async getJornadaById(id) {
-    try {
-      const clean = this._cleanString(id);
-      if (!clean) return null;
-
-      const doc = await this.db.collection("jornadas").doc(clean).get();
-      return doc && doc.exists ? doc : null;
-    } catch (e) {
-      console.warn("Error getJornadaById:", e);
-      return null;
-    }
-  }
-
-  async getJornadasByIds(ids = []) {
-    try {
-      const cleanIds = Array.isArray(ids)
-        ? ids.map(v => this._cleanString(v)).filter(Boolean)
-        : [];
-
-      if (!cleanIds.length) return [];
-
-      const results = await Promise.all(cleanIds.map(id => this.getJornadaById(id)));
-      return results.filter(Boolean);
-    } catch (e) {
-      console.warn("Error getJornadasByIds:", e);
-      return [];
-    }
-  }
-
   async getEmpresaByScope(empresa = "", sucursal = "") {
     try {
       const e = this._cleanString(empresa);
@@ -192,15 +163,15 @@ export default class EmployeeModel {
     }
   }
 
-  createAsistenciaRef(userId, fecha) {
-    const u = this._cleanString(userId);
+  createAsistenciaRef(authUid, fecha) {
+    const u = this._cleanString(authUid);
     const f = this._cleanString(fecha);
     return this.db.collection("asistencias").doc(`${u}_${f}`);
   }
 
-  async getAsistencia(userId, fecha) {
+  async getAsistencia(authUid, fecha) {
     try {
-      const ref = this.createAsistenciaRef(userId, fecha);
+      const ref = this.createAsistenciaRef(authUid, fecha);
       const snap = await ref.get();
       return snap && snap.exists ? snap : null;
     } catch (e) {
