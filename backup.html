@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recuperación ante Desastres</title>
+    <link rel="stylesheet" href="css/admin.css" />
+    <style>
+        .backup-card {
+            max-width: 900px;
+            margin: 24px auto;
+            padding: 20px;
+            border: 1px solid #d0d0d0;
+            border-radius: 12px;
+            background: #fff;
+        }
+
+        .backup-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .backup-grid label,
+        .collections-box label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+
+        .backup-grid input,
+        .backup-grid select,
+        .backup-actions button,
+        .backup-actions input[type="file"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border: 1px solid #cfcfcf;
+            border-radius: 8px;
+        }
+
+        .collections-box {
+            margin: 16px 0;
+            padding: 14px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+
+        .collections-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .backup-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            align-items: center;
+        }
+
+        #backupStatus {
+            margin-top: 14px;
+            min-height: 24px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .muted {
+            color: #666;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <div id="navbar-links">
+            <ul id="menu">
+                <li><a href="empleados.html">Empleados</a></li>
+                <li><a href="asistencias.html">Asistencias</a></li>
+                <li><a href="jornadas.html">Jornadas</a></li>
+                <li><a href="perfil.html">Ver Mi Perfil</a></li>
+                <li><a href="planilla.html">Planilla Semanal</a></li>
+                <li><a href="backup.html">Exportar/Importar</a></li>
+                <li>
+                    <button id="btnDescargarQr" type="button">Generar QR Empresa</button>
+                    <div id="qr-container" style="margin-top:10px;"></div>
+                </li>
+                <li><button id="logout-button" type="button">Cerrar Sesión</button></li>
+            </ul>
+        </div>
+        <button id="menu-toggle" class="hamburger" type="button">&#9776;</button>
+    </nav>
+
+    <div class="backup-card">
+        <h2>Recuperación ante desastres</h2>
+        <p class="muted">
+            Exporta e importa todas las colecciones del sistema filtradas por empresa y sucursal.
+            La importación usa el mismo ID del documento para evitar duplicados.
+        </p>
+
+        <div class="backup-grid">
+            <div>
+                <label for="empresaInput">Empresa</label>
+                <input id="empresaInput" type="text" placeholder="J.M Asociados" />
+            </div>
+
+            <div>
+                <label for="sucursalInput">Sucursal</label>
+                <input id="sucursalInput" type="text" placeholder="1" />
+            </div>
+
+            <div>
+                <label for="importMode">Modo de importación</label>
+                <select id="importMode">
+                    <option value="merge" selected>Merge (recomendado)</option>
+                    <option value="overwrite">Overwrite</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="collections-box">
+            <strong>Colecciones incluidas</strong>
+            <div class="collections-list" id="collectionsList"></div>
+            <div class="muted" style="margin-top:8px;">
+                Todas quedan seleccionadas por defecto.
+            </div>
+        </div>
+
+        <div class="backup-actions">
+            <button id="btnExportBackup" type="button">Exportar respaldo</button>
+            <label style="padding:0; border:none;">
+                <input id="importFileInput" type="file" accept="application/json" />
+            </label>
+            <button id="btnImportBackup" type="button">Importar respaldo</button>
+        </div>
+
+        <div id="backupStatus"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script src="js/firebase-config.js"></script>
+    <script type="module" src="js/services/session.service.js"></script>
+    <script type="module" src="js/controllers/backup.controller.js"></script>
+</body>
+
+</html>
