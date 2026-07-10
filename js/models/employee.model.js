@@ -99,10 +99,11 @@ export default class EmployeeModel {
         nombre: profileFallback.nombre || "",
         blocked: profileFallback.blocked === true,
         activo: profileFallback.activo !== undefined ? !!profileFallback.activo : true,
-        jornadas: Array.isArray(profileFallback.jornadas) ? profileFallback.jornadas : [],
         jornada: profileFallback.jornada || "",
         jornadaId: profileFallback.jornadaId || "",
+        jornadaNombre: profileFallback.jornadaNombre || "",
         jornadaData: profileFallback.jornadaData || null,
+        jornadas: Array.isArray(profileFallback.jornadas) ? profileFallback.jornadas : [],
         jornadasData: Array.isArray(profileFallback.jornadasData) ? profileFallback.jornadasData : [],
         jornadasDetalle: Array.isArray(profileFallback.jornadasDetalle) ? profileFallback.jornadasDetalle : [],
         ...profileFallback

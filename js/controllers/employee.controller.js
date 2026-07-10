@@ -131,6 +131,26 @@ function normalizeArray(value) {
   return [...new Set(value.map(v => String(v || "").trim()).filter(Boolean))];
 }
 
+function normalizeCatalog(value) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.values(value).filter(Boolean);
+  }
+
+  return [];
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const s = String(value ?? "").trim();
+    if (s) return s;
+  }
+  return "";
+}
+
 function resolveJornadasFromData(data) {
   const jornadas = normalizeArray(data?.jornadas);
   if (jornadas.length > 0) return jornadas;
@@ -156,11 +176,25 @@ function buildCanonicalUserProfile(source = {}, sessionData = null, currentUser 
     activo: source.activo !== undefined ? !!source.activo : true,
     jornada: String(source.jornada || sessionData?.jornada || sessionData?.jornadaId || "").trim(),
     jornadaId: String(source.jornadaId || sessionData?.jornadaId || source.jornada || "").trim(),
+    jornadaNombre: String(source.jornadaNombre || sessionData?.jornadaNombre || source.nombreJornada || "").trim(),
     jornadas,
     jornadaData: source.jornadaData || null,
     jornadasData: Array.isArray(source.jornadasData) ? source.jornadasData : [],
     jornadasDetalle: Array.isArray(source.jornadasDetalle) ? source.jornadasDetalle : []
   };
+}
+
+function getJornadaCandidates(userData) {
+  const candidates = [];
+  if (userData?.jornadaData && typeof userData.jornadaData === "object" && !Array.isArray(userData.jornadaData)) {
+    candidates.push(userData.jornadaData);
+  }
+
+  candidates.push(...normalizeCatalog(userData?.jornadasData));
+  candidates.push(...normalizeCatalog(userData?.jornadasDetalle));
+  candidates.push(...normalizeCatalog(userData?.jornadas));
+
+  return candidates;
 }
 
 function resolveJornadaDataFromUser(userData, jornadaId) {
@@ -169,33 +203,39 @@ function resolveJornadaDataFromUser(userData, jornadaId) {
   const jid = String(jornadaId || userData.jornada || userData.jornadaId || "").trim();
   if (!jid) return null;
 
-  if (userData.jornadaData && typeof userData.jornadaData === "object") {
-    const candidateId = String(userData.jornadaData.id || userData.jornadaData.jornadaId || "").trim();
-    if (!candidateId || candidateId === jid) {
-      return {
-        id: jid,
-        ...userData.jornadaData
-      };
-    }
+  const candidates = getJornadaCandidates(userData);
+
+  let found = null;
+  if (candidates.length > 0) {
+    found = candidates.find(j => String(j?.id || j?.jornadaId || "").trim() === jid) || null;
   }
 
-  const arrays = [userData.jornadasData, userData.jornadasDetalle];
-  for (const arr of arrays) {
-    if (!Array.isArray(arr)) continue;
-    const found = arr.find(j => String(j?.id || j?.jornadaId || "").trim() === jid);
-    if (found) {
-      return {
-        id: String(found.id || found.jornadaId || jid).trim(),
-        ...found
-      };
-    }
-  }
+  const jornadaNombre = firstNonEmpty(
+    found?.nombre,
+    found?.jornadaNombre,
+    found?.titulo,
+    userData.jornadaNombre,
+    userData.nombreJornada
+  );
+
+  const horaEntrada = firstNonEmpty(
+    found?.horaEntrada,
+    found?.entrada,
+    userData.horaEntrada
+  );
+
+  const horaSalida = firstNonEmpty(
+    found?.horaSalida,
+    found?.salida,
+    userData.horaSalida
+  );
 
   return {
     id: jid,
-    nombre: userData.jornadaNombre || userData.nombreJornada || "",
-    horaEntrada: userData.horaEntrada || "",
-    horaSalida: userData.horaSalida || ""
+    nombre: jornadaNombre,
+    horaEntrada,
+    horaSalida,
+    raw: found || null
   };
 }
 
@@ -611,7 +651,7 @@ async function registrarAsistencia() {
         const jornadaData = resolveJornadaDataFromUser(userData, jornadaId) || {};
         const opt = document.createElement("option");
         opt.value = jornadaId;
-        opt.textContent = `${jornadaData.nombre || jornadaId}`;
+        opt.textContent = jornadaData.nombre || jornadaData.id || jornadaId;
         select.appendChild(opt);
       });
 
@@ -650,9 +690,16 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
       return;
     }
 
-    const jornadaNombre = jornadaData.nombre || "";
-    const horaEntrada = String(jornadaData.horaEntrada || jornadaData.entrada || "").trim();
-    const horaSalida = String(jornadaData.horaSalida || jornadaData.salida || "").trim();
+    const jornadaNombre = firstNonEmpty(
+      jornadaData.nombre,
+      jornadaData.jornadaNombre,
+      userData.jornadaNombre,
+      userData.nombreJornada,
+      jornadaId
+    );
+
+    const horaEntrada = firstNonEmpty(jornadaData.horaEntrada, jornadaData.entrada);
+    const horaSalida = firstNonEmpty(jornadaData.horaSalida, jornadaData.salida);
     const puedeValidarHorario = horarioDisponible(jornadaData);
 
     const { empresa, sucursal } = userData;
@@ -690,14 +737,14 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
         if (!asistenciaDoc.exists) {
           let status = "A tiempo";
 
-          if (puedeValidarHorario) {
+          if (puedeValidarHorario && horaEntrada) {
             const entradaHour = (horaEntrada || "00:00").split(":")[0] || "0";
             status = hour >= parseInt(entradaHour, 10) ? "Tarde" : "A tiempo";
           }
 
           const baseData = {
             authUid: uid || userData.authUid || "",
-            userId: userData.docId || "",
+            userId: uid || userData.authUid || "",
             user: userData.nombre,
             empresa,
             sucursal,
@@ -720,7 +767,7 @@ async function procesarJornada(jornadaId, userData, now, hour, fechaHoy) {
             }
 
             baseData.justificacion = justif;
-            mostrarQrResultado(`Jornada: ${jornadaNombre || jornadaId} (${horaEntrada || "??:??"} - ${horaSalida || "??:??"})`);
+            mostrarQrResultado(`Jornada: ${jornadaNombre} (${horaEntrada || "??:??"} - ${horaSalida || "??:??"})`);
           }
 
           await model.setAsistencia(asistenciaRef, baseData);
