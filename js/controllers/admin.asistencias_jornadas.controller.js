@@ -868,29 +868,65 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             return;
         }
 
-        const yaExiste =
+        let pagadaTh =
             headerRow.querySelector(
                 '[data-columna="pagada"]'
             );
 
-        if (yaExiste) {
-            return;
+        if (!pagadaTh) {
+            pagadaTh =
+                document.createElement(
+                    "th"
+                );
+
+            pagadaTh.dataset.columna =
+                "pagada";
+
+            pagadaTh.textContent =
+                "Pagada";
         }
 
-        const th =
-            document.createElement(
-                "th"
+        const encabezados =
+            Array.from(
+                headerRow.children
             );
 
-        th.dataset.columna =
-            "pagada";
+        const accionesTh =
+            encabezados.find(th => {
+                const dataColumna =
+                    String(
+                        th.dataset?.columna ||
+                            ""
+                    )
+                        .trim()
+                        .toLowerCase();
 
-        th.textContent =
-            "Pagada";
+                const texto =
+                    String(
+                        th.textContent || ""
+                    )
+                        .trim()
+                        .toLowerCase();
 
-        headerRow.appendChild(
-            th
-        );
+                return (
+                    dataColumna ===
+                        "acciones" ||
+                    texto === "acciones"
+                );
+            });
+
+        if (accionesTh) {
+            headerRow.insertBefore(
+                pagadaTh,
+                accionesTh
+            );
+        } else if (
+            !pagadaTh.parentElement
+        ) {
+            headerRow.appendChild(
+                pagadaTh
+            );
+        }
     }
 
     async function cargarAsistencias(
