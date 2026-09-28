@@ -5,46 +5,85 @@ import PlanillaModel from "../models/planilla.model.js";
 (function () {
     "use strict";
 
-    const db = window.db;
+    const db =
+        window.db;
 
     if (!db) {
         console.error(
             "Firestore no está inicializado."
         );
+
         return;
     }
 
-    const model = new PlanillaModel(db);
+    const model =
+        new PlanillaModel(
+            db
+        );
 
-    const DEFAULT_ISSS_RATE = 0.03;
-    const DEFAULT_AFP_RATE = 0.0725;
+    const DEFAULT_ISSS_RATE =
+        0.03;
+
+    const DEFAULT_AFP_RATE =
+        0.0725;
+
+    /*
+     * Cache de pagos manuales.
+     *
+     * La clave representa:
+     *
+     * empresa::sucursal::fechaInicio::fechaFin
+     *
+     * El valor contiene:
+     *
+     * empleadoId -> total pagado en ese rango
+     */
+    const pagosManualesCache =
+        new Map();
 
     let lastPlanillaData = {
         rows: [],
         empleados: {},
         asistencias: [],
         jornadasMap: {},
+        pagosManuales: {},
         fechas: {
             inicio: "",
             fin: ""
+        },
+        scope: {
+            empresa: "",
+            sucursal: ""
         },
         aplicarNocturno: false
     };
 
     function obtenerSemanaActualLocal() {
-        const hoy = new Date();
-        const d = hoy.getDay() || 7;
+        const hoy =
+            new Date();
 
-        const inicio = new Date(hoy);
+        const d =
+            hoy.getDay() || 7;
+
+        const inicio =
+            new Date(
+                hoy
+            );
 
         inicio.setDate(
-            hoy.getDate() - d + 1
+            hoy.getDate() -
+                d +
+                1
         );
 
-        const fin = new Date(inicio);
+        const fin =
+            new Date(
+                inicio
+            );
 
         fin.setDate(
-            inicio.getDate() + 6
+            inicio.getDate() +
+                6
         );
 
         return {
@@ -72,16 +111,23 @@ import PlanillaModel from "../models/planilla.model.js";
         }
 
         timeStr =
-            timeStr || "00:00";
+            timeStr ||
+            "00:00";
 
         const esPM =
-            /p\.?m\.?/i.test(timeStr);
+            /p\.?m\.?/i.test(
+                timeStr
+            );
 
         const esAM =
-            /a\.?m\.?/i.test(timeStr);
+            /a\.?m\.?/i.test(
+                timeStr
+            );
 
         const clean =
-            String(timeStr)
+            String(
+                timeStr
+            )
                 .replace(
                     /a\.?m\.?|p\.?m\.?/gi,
                     ""
@@ -157,7 +203,9 @@ import PlanillaModel from "../models/planilla.model.js";
         }
 
         const low =
-            String(nombre)
+            String(
+                nombre
+            )
                 .toLowerCase();
 
         return [
@@ -167,7 +215,9 @@ import PlanillaModel from "../models/planilla.model.js";
             "nocturnas"
         ].some(
             s =>
-                low.includes(s)
+                low.includes(
+                    s
+                )
         );
     }
 
@@ -188,12 +238,16 @@ import PlanillaModel from "../models/planilla.model.js";
     function getEmpresaSucursal() {
         return {
             empresa:
-                window.adminEmpresa ||
-                "",
+                String(
+                    window.adminEmpresa ||
+                        ""
+                ).trim(),
 
             sucursal:
-                window.adminSucursal ||
-                ""
+                String(
+                    window.adminSucursal ||
+                        ""
+                ).trim()
         };
     }
 
@@ -210,18 +264,38 @@ import PlanillaModel from "../models/planilla.model.js";
         }
 
         const n =
-            Number(value);
+            Number(
+                value
+            );
 
-        return Number.isFinite(n)
+        return Number.isFinite(
+            n
+        )
             ? n
             : fallback;
+    }
+
+    function redondearMoneda(
+        value
+    ) {
+        return (
+            Math.round(
+                toNumber(
+                    value,
+                    0
+                ) *
+                    100
+            ) / 100
+        );
     }
 
     function parsePercent(
         value
     ) {
         const n =
-            Number(value);
+            Number(
+                value
+            );
 
         if (
             !Number.isFinite(n) ||
@@ -230,7 +304,9 @@ import PlanillaModel from "../models/planilla.model.js";
             return null;
         }
 
-        if (n <= 1) {
+        if (
+            n <= 1
+        ) {
             return n;
         }
 
@@ -245,7 +321,10 @@ import PlanillaModel from "../models/planilla.model.js";
             return null;
         }
 
-        for (const key of keys) {
+        for (
+            const key of
+            keys
+        ) {
             if (
                 Object.prototype.hasOwnProperty.call(
                     obj,
@@ -258,7 +337,9 @@ import PlanillaModel from "../models/planilla.model.js";
                     );
 
                 if (
-                    Number.isFinite(n)
+                    Number.isFinite(
+                        n
+                    )
                 ) {
                     return n;
                 }
@@ -276,7 +357,10 @@ import PlanillaModel from "../models/planilla.model.js";
             return null;
         }
 
-        for (const key of keys) {
+        for (
+            const key of
+            keys
+        ) {
             if (
                 Object.prototype.hasOwnProperty.call(
                     obj,
@@ -385,7 +469,9 @@ import PlanillaModel from "../models/planilla.model.js";
                 inicio
             ) / 3600000;
 
-        if (diff <= 0) {
+        if (
+            diff <= 0
+        ) {
             diff += 24;
         }
 
@@ -482,7 +568,9 @@ import PlanillaModel from "../models/planilla.model.js";
                 0
             );
 
-        return n.toFixed(2);
+        return n.toFixed(
+            2
+        );
     }
 
     function escapeHtml(
@@ -523,7 +611,9 @@ import PlanillaModel from "../models/planilla.model.js";
             return "";
         }
 
-        return String(value)
+        return String(
+            value
+        )
             .trim()
             .toLowerCase();
     }
@@ -538,10 +628,14 @@ import PlanillaModel from "../models/planilla.model.js";
             return "";
         }
 
-        return String(value)
+        return String(
+            value
+        )
             .trim()
             .toLowerCase()
-            .normalize("NFD")
+            .normalize(
+                "NFD"
+            )
             .replace(
                 /[\u0300-\u036f]/g,
                 ""
@@ -553,17 +647,11 @@ import PlanillaModel from "../models/planilla.model.js";
     }
 
     /*
-     * Crea un índice de empleados utilizando
-     * todos los identificadores que pueden
-     * aparecer en una asistencia.
-     *
-     * Esto evita depender únicamente de:
-     *
-     *     empleados[doc.id]
-     *
-     * porque el userId/uid de una asistencia
-     * puede ser otro valor.
+     * ---------------------------------------------------------
+     * ÍNDICE DE EMPLEADOS
+     * ---------------------------------------------------------
      */
+
     function construirIndiceEmpleados(
         empleados
     ) {
@@ -577,7 +665,9 @@ import PlanillaModel from "../models/planilla.model.js";
             empleados
         ).forEach(
             emp => {
-                if (!emp) return;
+                if (!emp) {
+                    return;
+                }
 
                 const id =
                     normalizarIdentificador(
@@ -652,10 +742,6 @@ import PlanillaModel from "../models/planilla.model.js";
         return indice;
     }
 
-    /*
-     * Intenta resolver una asistencia al
-     * documento real del empleado.
-     */
     function resolverEmpleadoAsistencia(
         asistencia,
         indice
@@ -763,9 +849,685 @@ import PlanillaModel from "../models/planilla.model.js";
         return null;
     }
 
-    function renderRows(
+    /*
+     * ---------------------------------------------------------
+     * PAGOS MANUALES
+     * ---------------------------------------------------------
+     */
+
+    function crearClavePagoPeriodo(
+        empresa,
+        sucursal,
+        fechaInicio,
+        fechaFin
+    ) {
+        return [
+            empresa,
+            sucursal,
+            fechaInicio,
+            fechaFin
+        ]
+            .map(
+                value =>
+                    String(
+                        value ?? ""
+                    ).trim()
+            )
+            .join(
+                "::"
+            );
+    }
+
+    function obtenerEditorActual() {
+        const usuario =
+            window.adminSessionUserData ||
+            {};
+
+        return String(
+            usuario.uid ||
+            usuario.id ||
+            usuario.authUid ||
+            usuario.userId ||
+            usuario.email ||
+            ""
+        ).trim();
+    }
+
+    /*
+     * Obtiene el total correspondiente exclusivamente
+     * a los días actualmente seleccionados.
+     *
+     * Puede proceder del nuevo mapa diario o, mientras
+     * todavía no haya migración, del formato antiguo.
+     */
+    function obtenerPagoManualEmpleado(
+        empleado,
+        fechaInicio,
+        fechaFin
+    ) {
+        if (
+            !empleado
+        ) {
+            return null;
+        }
+
+        const total =
+            model.obtenerTotalPagadoPeriodo(
+                empleado,
+                fechaInicio,
+                fechaFin
+            );
+
+        if (
+            total === null
+        ) {
+            return null;
+        }
+
+        return redondearMoneda(
+            total
+        );
+    }
+
+    async function cargarPagosManualesPeriodo(
+        empleados,
+        empresa,
+        sucursal,
+        fechaInicio,
+        fechaFin
+    ) {
+        const ids =
+            Object.keys(
+                empleados || {}
+            );
+
+        if (
+            !empresa ||
+            !sucursal ||
+            !fechaInicio ||
+            !fechaFin ||
+            ids.length === 0
+        ) {
+            return {};
+        }
+
+        const cachePeriodoKey =
+            crearClavePagoPeriodo(
+                empresa,
+                sucursal,
+                fechaInicio,
+                fechaFin
+            );
+
+        if (
+            pagosManualesCache.has(
+                cachePeriodoKey
+            )
+        ) {
+            return {
+                ...(
+                    pagosManualesCache.get(
+                        cachePeriodoKey
+                    ) || {}
+                )
+            };
+        }
+
+        const pagos =
+            {};
+
+        /*
+         * Los empleados ya se cargaron desde Firestore.
+         *
+         * Por ello no se necesita ninguna consulta adicional.
+         */
+        ids.forEach(
+            empleadoId => {
+                const empleado =
+                    empleados[
+                        empleadoId
+                    ];
+
+                const total =
+                    obtenerPagoManualEmpleado(
+                        empleado,
+                        fechaInicio,
+                        fechaFin
+                    );
+
+                if (
+                    total !== null
+                ) {
+                    pagos[
+                        empleadoId
+                    ] =
+                        total;
+                }
+            }
+        );
+
+        pagosManualesCache.set(
+            cachePeriodoKey,
+            {
+                ...pagos
+            }
+        );
+
+        return {
+            ...pagos
+        };
+    }
+
+    function actualizarCachePago(
+        empresa,
+        sucursal,
+        empleadoId,
+        fechaInicio,
+        fechaFin,
+        monto
+    ) {
+        const cachePeriodoKey =
+            crearClavePagoPeriodo(
+                empresa,
+                sucursal,
+                fechaInicio,
+                fechaFin
+            );
+
+        const actual =
+            pagosManualesCache.get(
+                cachePeriodoKey
+            ) || {};
+
+        const actualizado = {
+            ...actual
+        };
+
+        const id =
+            String(
+                empleadoId
+            ).trim();
+
+        if (
+            monto === null ||
+            monto === undefined
+        ) {
+            delete actualizado[
+                id
+            ];
+        } else {
+            actualizado[
+                id
+            ] =
+                redondearMoneda(
+                    monto
+                );
+        }
+
+        pagosManualesCache.set(
+            cachePeriodoKey,
+            actualizado
+        );
+    }
+
+    /*
+     * Actualiza localmente la fila después de guardar
+     * o restaurar el pago.
+     */
+    function actualizarFilaDesdePagos(
+        row,
+        empleado,
+        fechaInicio,
+        fechaFin
+    ) {
+        if (
+            !row ||
+            !empleado
+        ) {
+            return;
+        }
+
+        const pagoManual =
+            obtenerPagoManualEmpleado(
+                empleado,
+                fechaInicio,
+                fechaFin
+            );
+
+        if (
+            pagoManual !== null
+        ) {
+            row.totalPagado =
+                redondearMoneda(
+                    pagoManual
+                );
+        } else {
+            row.totalPagado =
+                redondearMoneda(
+                    row._totalPagadoCalculado
+                );
+        }
+
+        actualizarSaldoRow(
+            row
+        );
+    }
+
+    async function guardarTotalPagadoInput(
+        input
+    ) {
+        if (
+            !input ||
+            input.disabled
+        ) {
+            return;
+        }
+
+        const empresa =
+            String(
+                input.dataset.empresa ||
+                    ""
+            ).trim();
+
+        const sucursal =
+            String(
+                input.dataset.sucursal ||
+                    ""
+            ).trim();
+
+        const empleadoId =
+            String(
+                input.dataset.employeeId ||
+                    ""
+            ).trim();
+
+        const fechaInicio =
+            String(
+                input.dataset.fechaInicio ||
+                    ""
+            ).trim();
+
+        const fechaFin =
+            String(
+                input.dataset.fechaFin ||
+                    ""
+            ).trim();
+
+        if (
+            !empresa ||
+            !sucursal ||
+            !empleadoId ||
+            !fechaInicio ||
+            !fechaFin
+        ) {
+            alert(
+                "No hay información suficiente para guardar el pago del período."
+            );
+
+            return;
+        }
+
+        const row =
+            lastPlanillaData.rows.find(
+                item =>
+                    String(
+                        item.uid
+                    ) ===
+                    empleadoId
+            );
+
+        const empleado =
+            lastPlanillaData.empleados[
+                empleadoId
+            ];
+
+        const periodoSigueVisible =
+            lastPlanillaData.fechas
+                .inicio ===
+                fechaInicio &&
+            lastPlanillaData.fechas
+                .fin ===
+                fechaFin;
+
+        const valorAnterior =
+            periodoSigueVisible &&
+            row
+                ? redondearMoneda(
+                    row.totalPagado
+                )
+                : 0;
+
+        const raw =
+            String(
+                input.value ?? ""
+            ).trim();
+
+        /*
+         * -----------------------------------------------------
+         * CELDA VACÍA
+         * -----------------------------------------------------
+         *
+         * Restaura el valor histórico existente para esos días.
+         *
+         * Si no existe un pago histórico, esos días vuelven
+         * al cálculo automático.
+         */
+        if (
+            !raw
+        ) {
+            input.disabled =
+                true;
+
+            try {
+                const resultado =
+                    await model.eliminarPagoPeriodo(
+                        empresa,
+                        sucursal,
+                        empleadoId,
+                        fechaInicio,
+                        fechaFin
+                    );
+
+                actualizarCachePago(
+                    empresa,
+                    sucursal,
+                    empleadoId,
+                    fechaInicio,
+                    fechaFin,
+                    null
+                );
+
+                /*
+                 * Actualizar mapa diario local.
+                 */
+                if (
+                    empleado
+                ) {
+                    empleado.planillaPagosDiarios =
+                        {
+                            ...(
+                                resultado
+                                    ?.pagosDiarios ||
+                                {}
+                            )
+                        };
+                }
+
+                if (
+                    periodoSigueVisible &&
+                    row
+                ) {
+                    actualizarFilaDesdePagos(
+                        row,
+                        empleado,
+                        fechaInicio,
+                        fechaFin
+                    );
+
+                    input.value =
+                        row.totalPagado.toFixed(
+                            2
+                        );
+
+                    actualizarCeldaSaldo(
+                        input,
+                        row
+                    );
+                }
+            } catch (
+                error
+            ) {
+                console.error(
+                    "Error al restaurar el pago del período:",
+                    error
+                );
+
+                if (
+                    periodoSigueVisible &&
+                    row
+                ) {
+                    row.totalPagado =
+                        valorAnterior;
+
+                    actualizarSaldoRow(
+                        row
+                    );
+
+                    input.value =
+                        valorAnterior.toFixed(
+                            2
+                        );
+
+                    actualizarCeldaSaldo(
+                        input,
+                        row
+                    );
+                }
+
+                alert(
+                    "No se pudo restaurar el pago del período. Revisa los permisos de actualización de usuarios."
+                );
+            } finally {
+                input.disabled =
+                    false;
+
+                input.dataset.previousValue =
+                    input.value;
+            }
+
+            return;
+        }
+
+        /*
+         * -----------------------------------------------------
+         * VALIDAR NUEVO TOTAL
+         * -----------------------------------------------------
+         */
+
+        const numero =
+            Number(
+                raw.replace(
+                    ",",
+                    "."
+                )
+            );
+
+        if (
+            !Number.isFinite(
+                numero
+            ) ||
+            numero < 0
+        ) {
+            alert(
+                "El Total Ya Pagado debe ser un número mayor o igual a cero."
+            );
+
+            input.value =
+                valorAnterior.toFixed(
+                    2
+                );
+
+            return;
+        }
+
+        const nuevoTotal =
+            redondearMoneda(
+                numero
+            );
+
+        input.disabled =
+            true;
+
+        try {
+            /*
+             * El nuevo total se reparte entre los días del
+             * período seleccionado.
+             *
+             * Los días fuera del filtro no se modifican.
+             */
+            const resultado =
+                await model.guardarPagoPeriodo(
+                    empresa,
+                    sucursal,
+                    empleadoId,
+                    fechaInicio,
+                    fechaFin,
+                    nuevoTotal,
+                    obtenerEditorActual()
+                );
+
+            actualizarCachePago(
+                empresa,
+                sucursal,
+                empleadoId,
+                fechaInicio,
+                fechaFin,
+                nuevoTotal
+            );
+
+            /*
+             * Actualizar el empleado en memoria.
+             *
+             * Esto es necesario porque no queremos hacer
+             * otra lectura de Firestore inmediatamente.
+             */
+            if (
+                empleado
+            ) {
+                empleado.planillaPagosDiarios =
+                    {
+                        ...(
+                            resultado
+                                ?.pagosDiarios ||
+                            {}
+                        )
+                    };
+            }
+
+            if (
+                periodoSigueVisible &&
+                row
+            ) {
+                row.totalPagado =
+                    redondearMoneda(
+                        nuevoTotal
+                    );
+
+                actualizarSaldoRow(
+                    row
+                );
+
+                input.value =
+                    row.totalPagado.toFixed(
+                        2
+                    );
+
+                actualizarCeldaSaldo(
+                    input,
+                    row
+                );
+            }
+        } catch (
+            error
+        ) {
+            console.error(
+                "Error al guardar Total Ya Pagado:",
+                error
+            );
+
+            if (
+                periodoSigueVisible &&
+                row
+            ) {
+                row.totalPagado =
+                    valorAnterior;
+
+                actualizarSaldoRow(
+                    row
+                );
+
+                input.value =
+                    valorAnterior.toFixed(
+                        2
+                    );
+
+                actualizarCeldaSaldo(
+                    input,
+                    row
+                );
+            }
+
+            alert(
+                "No se pudo guardar el Total Ya Pagado. Revisa los permisos de actualización de usuarios."
+            );
+        } finally {
+            input.disabled =
+                false;
+
+            input.dataset.previousValue =
+                input.value;
+        }
+    }
+
+    function actualizarSaldoRow(
+        row
+    ) {
+        if (!row) {
+            return;
+        }
+
+        row.saldoPendiente =
+            Math.max(
+                0,
+                redondearMoneda(
+                    row.totalNetoGenerado -
+                        row.totalPagado
+                )
+            );
+    }
+
+    function actualizarCeldaSaldo(
+        input,
+        row
+    ) {
+        if (
+            !input ||
+            !row
+        ) {
+            return;
+        }
+
+        const tr =
+            input.closest(
+                "tr"
+            );
+
+        if (!tr) {
+            return;
+        }
+
+        const saldoTd =
+            tr.querySelector(
+                "[data-saldo-pendiente]"
+            );
+
+        if (
+            saldoTd
+        ) {
+            saldoTd.textContent =
+                formatMoney(
+                    row.saldoPendiente
+                );
+        }
+    }
+
+    function renderPlanillaRows(
         tableEl,
-        rows
+        rows,
+        empresa,
+        sucursal,
+        fechaInicio,
+        fechaFin
     ) {
         const tbody =
             tableEl.querySelector(
@@ -776,7 +1538,8 @@ import PlanillaModel from "../models/planilla.model.js";
             return;
         }
 
-        tbody.innerHTML = "";
+        tbody.innerHTML =
+            "";
 
         rows.forEach(
             row => {
@@ -785,19 +1548,299 @@ import PlanillaModel from "../models/planilla.model.js";
                         "tr"
                     );
 
-                tr.innerHTML =
-                    row
-                        .map(
-                            cell =>
-                                `<td>${escapeHtml(
-                                    cell
-                                )}</td>`
-                        )
-                        .join("");
+                const valores = [
+                    row.empleado,
+
+                    formatMoney(
+                        row.salarioBaseHora
+                    ),
+
+                    formatHours(
+                        row.horasTrabajadas
+                    ),
+
+                    formatHours(
+                        row.horasNoTrabajadas
+                    ),
+
+                    formatMoney(
+                        row.ayudaEconomica
+                    ),
+
+                    formatMoney(
+                        row.totalBruto
+                    ),
+
+                    formatMoney(
+                        row.isss
+                    ),
+
+                    formatMoney(
+                        row.afp
+                    ),
+
+                    formatMoney(
+                        row.renta
+                    ),
+
+                    formatMoney(
+                        row.totalNetoGenerado
+                    ),
+
+                    String(
+                        row.diasPagados
+                    )
+                ];
+
+                valores.forEach(
+                    value => {
+                        const td =
+                            document.createElement(
+                                "td"
+                            );
+
+                        td.textContent =
+                            String(
+                                value ?? ""
+                            );
+
+                        tr.appendChild(
+                            td
+                        );
+                    }
+                );
+
+                /*
+                 * -------------------------------------------------
+                 * TOTAL YA PAGADO
+                 * -------------------------------------------------
+                 */
+
+                const tdPagado =
+                    document.createElement(
+                        "td"
+                    );
+
+                tdPagado.className =
+                    "total-ya-pagado-cell";
+
+                const input =
+                    document.createElement(
+                        "input"
+                    );
+
+                input.type =
+                    "number";
+
+                input.min =
+                    "0";
+
+                input.step =
+                    "0.01";
+
+                input.inputMode =
+                    "decimal";
+
+                input.className =
+                    "planilla-total-pagado-input";
+
+                input.value =
+                    redondearMoneda(
+                        row.totalPagado
+                    ).toFixed(
+                        2
+                    );
+
+                input.dataset.totalPagado =
+                    "1";
+
+                input.dataset.employeeId =
+                    String(
+                        row.uid
+                    );
+
+                input.dataset.empresa =
+                    String(
+                        empresa
+                    );
+
+                input.dataset.sucursal =
+                    String(
+                        sucursal
+                    );
+
+                input.dataset.fechaInicio =
+                    String(
+                        fechaInicio
+                    );
+
+                input.dataset.fechaFin =
+                    String(
+                        fechaFin
+                    );
+
+                input.dataset.previousValue =
+                    input.value;
+
+                input.title =
+                    "Total ya pagado correspondiente únicamente a los días seleccionados.";
+
+                input.style.width =
+                    "100%";
+
+                input.style.minWidth =
+                    "85px";
+
+                input.style.maxWidth =
+                    "120px";
+
+                input.style.boxSizing =
+                    "border-box";
+
+                input.style.textAlign =
+                    "center";
+
+                input.style.padding =
+                    "6px";
+
+                tdPagado.appendChild(
+                    input
+                );
+
+                tr.appendChild(
+                    tdPagado
+                );
+
+                /*
+                 * -------------------------------------------------
+                 * SALDO PENDIENTE
+                 * -------------------------------------------------
+                 */
+
+                const tdSaldo =
+                    document.createElement(
+                        "td"
+                    );
+
+                tdSaldo.dataset.saldoPendiente =
+                    "1";
+
+                tdSaldo.textContent =
+                    formatMoney(
+                        row.saldoPendiente
+                    );
+
+                tr.appendChild(
+                    tdSaldo
+                );
 
                 tbody.appendChild(
                     tr
                 );
+            }
+        );
+    }
+
+    function bindTotalPagadoEditor(
+        tableEl
+    ) {
+        if (
+            !tableEl ||
+            tableEl.dataset
+                .totalPagadoBound
+        ) {
+            return;
+        }
+
+        tableEl.dataset
+            .totalPagadoBound =
+            "1";
+
+        /*
+         * Guardar al cambiar.
+         */
+        tableEl.addEventListener(
+            "change",
+            async event => {
+                const input =
+                    event.target.closest(
+                        "input[data-total-pagado='1']"
+                    );
+
+                if (!input) {
+                    return;
+                }
+
+                await guardarTotalPagadoInput(
+                    input
+                );
+            }
+        );
+
+        /*
+         * Enter = guardar.
+         */
+        tableEl.addEventListener(
+            "keydown",
+            event => {
+                const input =
+                    event.target.closest(
+                        "input[data-total-pagado='1']"
+                    );
+
+                if (!input) {
+                    return;
+                }
+
+                if (
+                    event.key ===
+                    "Enter"
+                ) {
+                    event.preventDefault();
+
+                    input.blur();
+                }
+
+                if (
+                    event.key ===
+                    "Escape"
+                ) {
+                    event.preventDefault();
+
+                    const anterior =
+                        input.dataset
+                            .previousValue;
+
+                    if (
+                        anterior !==
+                        undefined
+                    ) {
+                        input.value =
+                            anterior;
+                    }
+
+                    input.blur();
+                }
+            }
+        );
+
+        /*
+         * Guardar valor anterior.
+         */
+        tableEl.addEventListener(
+            "focusin",
+            event => {
+                const input =
+                    event.target.closest(
+                        "input[data-total-pagado='1']"
+                    );
+
+                if (!input) {
+                    return;
+                }
+
+                input.dataset.previousValue =
+                    input.value;
             }
         );
     }
@@ -876,7 +1919,8 @@ import PlanillaModel from "../models/planilla.model.js";
                 sucursal
             );
 
-        let hay = false;
+        let hay =
+            false;
 
         asSnap.forEach(
             doc => {
@@ -907,7 +1951,8 @@ import PlanillaModel from "../models/planilla.model.js";
                             jm.nombre
                         )
                     ) {
-                        hay = true;
+                        hay =
+                            true;
                     }
                 }
             }
@@ -968,7 +2013,8 @@ import PlanillaModel from "../models/planilla.model.js";
                     )
                     : jornadaStart;
 
-        let realEnd = null;
+        let realEnd =
+            null;
 
         if (
             asistencia.salida &&
@@ -1166,8 +2212,11 @@ import PlanillaModel from "../models/planilla.model.js";
         }
 
         /*
-         * Cargar empleados.
+         * ---------------------------------------------------------
+         * EMPLEADOS
+         * ---------------------------------------------------------
          */
+
         const empSnap =
             await model.getEmpleadosByScope(
                 empresa,
@@ -1191,17 +2240,33 @@ import PlanillaModel from "../models/planilla.model.js";
         );
 
         /*
-         * Índice robusto para relacionar
-         * asistencias con empleados.
+         * ---------------------------------------------------------
+         * PAGOS MANUALES
+         * ---------------------------------------------------------
+         *
+         * Aquí se calcula únicamente la parte pagada de los
+         * días comprendidos en el período seleccionado.
          */
+        const pagosManualesPeriodo =
+            await cargarPagosManualesPeriodo(
+                empleados,
+                empresa,
+                sucursal,
+                fechaInicio,
+                fechaFin
+            );
+
+        /*
+         * ---------------------------------------------------------
+         * ASISTENCIAS
+         * ---------------------------------------------------------
+         */
+
         const indiceEmpleados =
             construirIndiceEmpleados(
                 empleados
             );
 
-        /*
-         * Cargar asistencias.
-         */
         const asSnap =
             await model.getAsistenciasByScope(
                 empresa,
@@ -1236,19 +2301,12 @@ import PlanillaModel from "../models/planilla.model.js";
                     return;
                 }
 
-                /*
-                 * Resolver empleado real.
-                 */
                 const emp =
                     resolverEmpleadoAsistencia(
                         d,
                         indiceEmpleados
                     );
 
-                /*
-                 * Guardamos información
-                 * adicional para exportación.
-                 */
                 asistenciasFiltradas.push(
                     {
                         id:
@@ -1257,7 +2315,8 @@ import PlanillaModel from "../models/planilla.model.js";
                         ...d,
 
                         empleadoId:
-                            emp?.id || "",
+                            emp?.id ||
+                            "",
 
                         empleadoNombre:
                             emp?.nombre ||
@@ -1268,12 +2327,6 @@ import PlanillaModel from "../models/planilla.model.js";
                     }
                 );
 
-                /*
-                 * Si no se puede resolver,
-                 * no inventamos otro empleado.
-                 * Se conserva la asistencia
-                 * para diagnóstico/exportación.
-                 */
                 if (!emp) {
                     console.warn(
                         "No se pudo vincular la asistencia con un empleado:",
@@ -1310,19 +2363,6 @@ import PlanillaModel from "../models/planilla.model.js";
                     return;
                 }
 
-                /*
-                 * MUY IMPORTANTE:
-                 *
-                 * El grupo usa el ID real
-                 * del documento del empleado.
-                 *
-                 * De esta manera, aunque:
-                 *
-                 * asistencia.uid !== emp.id
-                 *
-                 * ambos terminan en el mismo
-                 * empleado.
-                 */
                 const employeeId =
                     emp.id;
 
@@ -1405,10 +2445,7 @@ import PlanillaModel from "../models/planilla.model.js";
                     factorNocturno;
 
                 /*
-                 * Solo se considera pagada
-                 * una asistencia que tenga:
-                 *
-                 *     pagada: true
+                 * Cálculo automático original.
                  */
                 if (
                     d.pagada === true
@@ -1432,8 +2469,11 @@ import PlanillaModel from "../models/planilla.model.js";
         );
 
         /*
-         * Calcular días del período.
+         * ---------------------------------------------------------
+         * DÍAS DEL PERÍODO
+         * ---------------------------------------------------------
          */
+
         const start =
             new Date(
                 fechaInicio
@@ -1456,17 +2496,19 @@ import PlanillaModel from "../models/planilla.model.js";
             d <= end;
 
             d.setDate(
-                d.getDate() + 1
+                d.getDate() +
+                    1
             )
         ) {
             totalDias++;
         }
 
         /*
-         * Garantizar que todos los
-         * empleados aparezcan en la planilla,
-         * aunque no tengan asistencia.
+         * ---------------------------------------------------------
+         * GARANTIZAR TODOS LOS EMPLEADOS
+         * ---------------------------------------------------------
          */
+
         for (
             const employeeId in
             empleados
@@ -1530,14 +2572,14 @@ import PlanillaModel from "../models/planilla.model.js";
             }
         }
 
+        /*
+         * ---------------------------------------------------------
+         * CONSTRUIR FILAS
+         * ---------------------------------------------------------
+         */
+
         const rows = [];
 
-        /*
-         * IMPORTANTE:
-         * Ahora este recorrido usa
-         * exclusivamente los IDs reales
-         * de usuarios.
-         */
         for (
             const employeeId in
             empleados
@@ -1580,7 +2622,9 @@ import PlanillaModel from "../models/planilla.model.js";
                         "isssRate"
                     ],
                     DEFAULT_ISSS_RATE,
-                    ["isss"]
+                    [
+                        "isss"
+                    ]
                 );
 
             const afp =
@@ -1596,7 +2640,9 @@ import PlanillaModel from "../models/planilla.model.js";
                         "afpRate"
                     ],
                     DEFAULT_AFP_RATE,
-                    ["afp"]
+                    [
+                        "afp"
+                    ]
                 );
 
             const renta =
@@ -1612,7 +2658,9 @@ import PlanillaModel from "../models/planilla.model.js";
                         "rentaRate"
                     ],
                     0,
-                    ["renta"]
+                    [
+                        "renta"
+                    ]
                 );
 
             const totalDeducciones =
@@ -1625,32 +2673,52 @@ import PlanillaModel from "../models/planilla.model.js";
                 totalDeducciones;
 
             /*
-             * Días pagados y monto pagado
-             * vienen únicamente de asistencias
-             * con pagada === true.
+             * Cálculo automático original.
              */
-            const totalPagado =
-                Math.round(
-                    (
-                        g.totalPagado ||
+            const totalPagadoCalculado =
+                redondearMoneda(
+                    g.totalPagado ||
                         0
-                    ) *
-                        100
-                ) / 100;
+                );
+
+            /*
+             * -----------------------------------------------------
+             * TOTAL YA PAGADO DEL RANGO
+             * -----------------------------------------------------
+             *
+             * Si existe una distribución manual para alguno de
+             * los días seleccionados, se utiliza la suma de esos
+             * días.
+             *
+             * Si no existe, se conserva el cálculo automático
+             * basado en pagada === true.
+             */
+            const existePagoManual =
+                Object.prototype.hasOwnProperty.call(
+                    pagosManualesPeriodo,
+                    employeeId
+                );
+
+            const totalPagado =
+                existePagoManual
+                    ? redondearMoneda(
+                        pagosManualesPeriodo[
+                            employeeId
+                        ]
+                    )
+                    : totalPagadoCalculado;
 
             const diasPagados =
-                g.diasPagados || 0;
+                g.diasPagados ||
+                0;
 
             const saldoPendiente =
                 Math.max(
                     0,
-                    Math.round(
-                        (
-                            totalNetoGenerado -
+                    redondearMoneda(
+                        totalNetoGenerado -
                             totalPagado
-                        ) *
-                            100
-                    ) / 100
+                    )
                 );
 
             const horasNoTrabajadas =
@@ -1690,55 +2758,50 @@ import PlanillaModel from "../models/planilla.model.js";
                             100
                     ) / 100,
 
-                ayudaEconomica,
+                ayudaEconomica:
+                    redondearMoneda(
+                        ayudaEconomica
+                    ),
 
                 totalBruto:
-                    Math.round(
-                        totalBruto *
-                            100
-                    ) / 100,
+                    redondearMoneda(
+                        totalBruto
+                    ),
 
                 isss:
-                    Math.round(
-                        isss *
-                            100
-                    ) / 100,
+                    redondearMoneda(
+                        isss
+                    ),
 
                 afp:
-                    Math.round(
-                        afp *
-                            100
-                    ) / 100,
+                    redondearMoneda(
+                        afp
+                    ),
 
                 renta:
-                    Math.round(
-                        renta *
-                            100
-                    ) / 100,
+                    redondearMoneda(
+                        renta
+                    ),
 
                 totalNetoGenerado:
-                    Math.round(
-                        totalNetoGenerado *
-                            100
-                    ) / 100,
+                    redondearMoneda(
+                        totalNetoGenerado
+                    ),
 
                 diasPagados,
 
                 totalPagado,
 
-                saldoPendiente
+                saldoPendiente,
+
+                /*
+                 * Respaldo del cálculo automático.
+                 */
+                _totalPagadoCalculado:
+                    totalPagadoCalculado
             });
         }
 
-        /*
-         * Si existiera alguna asistencia que
-         * todavía no pudo relacionarse, no crea
-         * una fila "Desconocido".
-         *
-         * La asistencia queda en el arreglo
-         * para que pueda verse/exportarse y
-         * su problema pueda identificarse.
-         */
         lastPlanillaData = {
             rows,
 
@@ -1749,6 +2812,9 @@ import PlanillaModel from "../models/planilla.model.js";
 
             jornadasMap,
 
+            pagosManuales:
+                pagosManualesPeriodo,
+
             fechas: {
                 inicio:
                     fechaInicio,
@@ -1757,67 +2823,25 @@ import PlanillaModel from "../models/planilla.model.js";
                     fechaFin
             },
 
+            scope: {
+                empresa,
+                sucursal
+            },
+
             aplicarNocturno
         };
 
-        const displayRows =
-            rows.map(
-                r => [
-                    r.empleado,
-
-                    formatMoney(
-                        r.salarioBaseHora
-                    ),
-
-                    formatHours(
-                        r.horasTrabajadas
-                    ),
-
-                    formatHours(
-                        r.horasNoTrabajadas
-                    ),
-
-                    formatMoney(
-                        r.ayudaEconomica
-                    ),
-
-                    formatMoney(
-                        r.totalBruto
-                    ),
-
-                    formatMoney(
-                        r.isss
-                    ),
-
-                    formatMoney(
-                        r.afp
-                    ),
-
-                    formatMoney(
-                        r.renta
-                    ),
-
-                    formatMoney(
-                        r.totalNetoGenerado
-                    ),
-
-                    String(
-                        r.diasPagados
-                    ),
-
-                    formatMoney(
-                        r.totalPagado
-                    ),
-
-                    formatMoney(
-                        r.saldoPendiente
-                    )
-                ]
-            );
-
-        renderRows(
+        renderPlanillaRows(
             tableEl,
-            displayRows
+            rows,
+            empresa,
+            sucursal,
+            fechaInicio,
+            fechaFin
+        );
+
+        bindTotalPagadoEditor(
+            tableEl
         );
 
         return lastPlanillaData;
@@ -2037,6 +3061,23 @@ import PlanillaModel from "../models/planilla.model.js";
                                 #fff;
                         }
 
+                        .planilla-total-pagado-input {
+                            border:
+                                none;
+                            outline:
+                                none;
+                            background:
+                                transparent;
+                            width:
+                                100%;
+                            max-width:
+                                120px;
+                            text-align:
+                                center;
+                            font:
+                                inherit;
+                        }
+
                     </style>
 
                 </head>
@@ -2049,8 +3090,11 @@ import PlanillaModel from "../models/planilla.model.js";
         `);
 
         w.document.close();
+
         w.focus();
+
         w.print();
+
         w.close();
     }
 
@@ -2107,6 +3151,10 @@ import PlanillaModel from "../models/planilla.model.js";
                         false,
                     jornadasMap
                 );
+
+            if (!data) {
+                return;
+            }
 
             if (
                 typeof XLSX ===
@@ -2276,8 +3324,12 @@ import PlanillaModel from "../models/planilla.model.js";
                 wb,
                 nombreArchivo
             );
-        } catch (e) {
-            console.error(e);
+        } catch (
+            e
+        ) {
+            console.error(
+                e
+            );
 
             alert(
                 "Error al exportar Excel"
@@ -2391,6 +3443,15 @@ import PlanillaModel from "../models/planilla.model.js";
                 descargarExcel
             );
         }
+
+        const tableEl =
+            document.getElementById(
+                "planillaTable"
+            );
+
+        bindTotalPagadoEditor(
+            tableEl
+        );
     }
 
     function bindNavigation() {
@@ -2456,6 +3517,7 @@ import PlanillaModel from "../models/planilla.model.js";
 
     async function initPage() {
         bindNavigation();
+
         bindPlanillaUI();
 
         const ready =
