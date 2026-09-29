@@ -5,20 +5,30 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
 (function () {
     "use strict";
 
-    const db = window.db;
+    const db =
+        window.db;
 
     if (!db) {
-        console.error("Firestore no está inicializado.");
+        console.error(
+            "Firestore no está inicializado."
+        );
+
         return;
     }
 
     const model =
-        new AdminAsistenciasJornadasModel(db);
+        new AdminAsistenciasJornadasModel(
+            db
+        );
 
-    let currentEditingJornadaId = null;
+    let currentEditingJornadaId =
+        null;
 
     async function waitForAdminReady() {
-        if (typeof window.whenAdminReady === "function") {
+        if (
+            typeof window.whenAdminReady ===
+            "function"
+        ) {
             try {
                 return await window.whenAdminReady();
             } catch (e) {
@@ -26,49 +36,73 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             }
         }
 
-        return await new Promise(resolve => {
-            const timer = setTimeout(
-                () => resolve(null),
-                12000
-            );
-
-            const probe = () => {
-                if (
-                    window.adminSessionUserData ||
-                    window.adminEmpresa ||
-                    window.adminSucursal
-                ) {
-                    clearTimeout(timer);
-
-                    resolve(
-                        window.adminSessionUserData ||
-                            null
+        return await new Promise(
+            resolve => {
+                const timer =
+                    setTimeout(
+                        () =>
+                            resolve(
+                                null
+                            ),
+                        12000
                     );
 
-                    return;
-                }
+                const probe =
+                    () => {
+                        if (
+                            window.adminSessionUserData ||
+                            window.adminEmpresa ||
+                            window.adminSucursal
+                        ) {
+                            clearTimeout(
+                                timer
+                            );
 
-                setTimeout(probe, 50);
-            };
+                            resolve(
+                                window.adminSessionUserData ||
+                                    null
+                            );
 
-            probe();
-        });
+                            return;
+                        }
+
+                        setTimeout(
+                            probe,
+                            50
+                        );
+                    };
+
+                probe();
+            }
+        );
     }
 
     function getWeekRange() {
-        const hoy = new Date();
-        const d = hoy.getDay() || 7;
+        const hoy =
+            new Date();
 
-        const inicio = new Date(hoy);
+        const d =
+            hoy.getDay() || 7;
+
+        const inicio =
+            new Date(
+                hoy
+            );
 
         inicio.setDate(
-            hoy.getDate() - d + 1
+            hoy.getDate() -
+                d +
+                1
         );
 
-        const fin = new Date(inicio);
+        const fin =
+            new Date(
+                inicio
+            );
 
         fin.setDate(
-            inicio.getDate() + 6
+            inicio.getDate() +
+                6
         );
 
         return {
@@ -84,13 +118,17 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         };
     }
 
-    function limpiarDataTable(selector) {
+    function limpiarDataTable(
+        selector
+    ) {
         try {
             if (
                 window.jQuery &&
                 $.fn &&
                 $.fn.DataTable &&
-                $.fn.DataTable.isDataTable(selector)
+                $.fn.DataTable.isDataTable(
+                    selector
+                )
             ) {
                 const tbl =
                     $(selector).DataTable();
@@ -106,7 +144,9 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         }
     }
 
-    function initDataTable(selector) {
+    function initDataTable(
+        selector
+    ) {
         if (
             !window.jQuery ||
             !$.fn ||
@@ -136,29 +176,45 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         rows
     ) {
         const tbody =
-            tableEl.querySelector("tbody");
+            tableEl.querySelector(
+                "tbody"
+            );
 
-        if (!tbody) return;
+        if (!tbody) {
+            return;
+        }
 
-        tbody.innerHTML = "";
+        tbody.innerHTML =
+            "";
 
-        rows.forEach(row => {
-            const tr =
-                document.createElement("tr");
+        rows.forEach(
+            row => {
+                const tr =
+                    document.createElement(
+                        "tr"
+                    );
 
-            tr.innerHTML = row
-                .map(
-                    c =>
-                        `<td>${c}</td>`
-                )
-                .join("");
+                tr.innerHTML =
+                    row
+                        .map(
+                            c =>
+                                `<td>${c}</td>`
+                        )
+                        .join("");
 
-            tbody.appendChild(tr);
-        });
+                tbody.appendChild(
+                    tr
+                );
+            }
+        );
     }
 
-    function escapeHtml(value) {
-        return String(value ?? "")
+    function escapeHtml(
+        value
+    ) {
+        return String(
+            value ?? ""
+        )
             .replace(
                 /&/g,
                 "&amp;"
@@ -202,11 +258,14 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                     s.sucursal || ""
                 ).trim(),
 
-            sessionData: s
+            sessionData:
+                s
         };
     }
 
-    function hasAdminContext(ctx) {
+    function hasAdminContext(
+        ctx
+    ) {
         return !!(
             ctx &&
             ctx.role === "admin" &&
@@ -223,11 +282,16 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         const sessionContext =
             getSessionContext();
 
-        if (!hasAdminContext(sessionContext)) {
+        if (
+            !hasAdminContext(
+                sessionContext
+            )
+        ) {
             console.warn(
                 `Contexto administrativo incompleto para ${operation}:`,
                 {
                     sessionContext,
+
                     adminSessionUserData:
                         window.adminSessionUserData ||
                         null
@@ -272,9 +336,12 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         );
     }
 
-    function parseHora(timeStr) {
+    function parseHora(
+        timeStr
+    ) {
         timeStr =
-            timeStr || "00:00";
+            timeStr ||
+            "00:00";
 
         const esPM =
             /p\.?m\.?/i.test(
@@ -287,7 +354,9 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             );
 
         const clean =
-            String(timeStr)
+            String(
+                timeStr
+            )
                 .replace(
                     /a\.?m\.?|p\.?m\.?/gi,
                     ""
@@ -297,11 +366,12 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         const parts =
             clean
                 .split(":")
-                .map(n =>
-                    parseInt(
-                        n,
-                        10
-                    )
+                .map(
+                    n =>
+                        parseInt(
+                            n,
+                            10
+                        )
                 );
 
         let h =
@@ -361,7 +431,10 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             h,
             m,
             s
-        } = parseHora(timeStr);
+        } =
+            parseHora(
+                timeStr
+            );
 
         const dt =
             new Date(
@@ -391,9 +464,13 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         }
 
         const n =
-            Number(value);
+            Number(
+                value
+            );
 
-        return Number.isFinite(n)
+        return Number.isFinite(
+            n
+        )
             ? n
             : fallback;
     }
@@ -404,7 +481,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
     ) {
         if (!emp) {
             return String(
-                fallbackJornadaId || ""
+                fallbackJornadaId ||
+                    ""
             ).trim();
         }
 
@@ -432,8 +510,240 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         }
 
         return String(
-            fallbackJornadaId || ""
+            fallbackJornadaId ||
+                ""
         ).trim();
+    }
+
+    function normalizarIdentificador(
+        value
+    ) {
+        if (
+            value === null ||
+            value === undefined
+        ) {
+            return "";
+        }
+
+        return String(
+            value
+        )
+            .trim()
+            .toLowerCase();
+    }
+
+    function normalizarNombre(
+        value
+    ) {
+        if (
+            value === null ||
+            value === undefined
+        ) {
+            return "";
+        }
+
+        return String(
+            value
+        )
+            .trim()
+            .toLowerCase()
+            .normalize(
+                "NFD"
+            )
+            .replace(
+                /[\u0300-\u036f]/g,
+                ""
+            )
+            .replace(
+                /\s+/g,
+                " "
+            );
+    }
+
+    function construirIndiceEmpleados(
+        empleados
+    ) {
+        const indice = {
+            porIdentificador: {},
+            porNombre: {}
+        };
+
+        Object.values(
+            empleados || {}
+        ).forEach(
+            emp => {
+                if (!emp) {
+                    return;
+                }
+
+                const identificadores = [
+                    emp.id,
+                    emp.uid,
+                    emp.authUid,
+                    emp.userId,
+                    emp.usuarioId,
+                    emp.auth_id,
+                    emp.usuario_id,
+                    emp.firebaseUid,
+                    emp.firebaseUID,
+                    emp.email,
+                    emp.correo
+                ];
+
+                identificadores.forEach(
+                    valor => {
+                        const key =
+                            normalizarIdentificador(
+                                valor
+                            );
+
+                        if (!key) {
+                            return;
+                        }
+
+                        if (
+                            !indice
+                                .porIdentificador[
+                                key
+                            ]
+                        ) {
+                            indice
+                                .porIdentificador[
+                                    key
+                                ] =
+                                emp;
+                        }
+                    }
+                );
+
+                const nombre =
+                    normalizarNombre(
+                        emp.nombre
+                    );
+
+                if (
+                    nombre &&
+                    !indice
+                        .porNombre[
+                        nombre
+                    ]
+                ) {
+                    indice.porNombre[
+                        nombre
+                    ] =
+                        emp;
+                }
+            }
+        );
+
+        return indice;
+    }
+
+    function resolverEmpleadoAsistencia(
+        asistencia,
+        indice
+    ) {
+        if (
+            !asistencia ||
+            !indice
+        ) {
+            return null;
+        }
+
+        const candidatos = [
+            asistencia.userId,
+            asistencia.uid,
+            asistencia.authUid,
+            asistencia.usuarioId,
+            asistencia.auth_id,
+            asistencia.usuario_id
+        ];
+
+        for (
+            const candidato of
+            candidatos
+        ) {
+            const key =
+                normalizarIdentificador(
+                    candidato
+                );
+
+            if (
+                key &&
+                indice
+                    .porIdentificador[
+                    key
+                ]
+            ) {
+                return indice
+                    .porIdentificador[
+                    key
+                ];
+            }
+        }
+
+        const correos = [
+            asistencia.email,
+            asistencia.correo,
+            asistencia.userEmail,
+            asistencia.usuarioEmail
+        ];
+
+        for (
+            const correo of
+            correos
+        ) {
+            const key =
+                normalizarIdentificador(
+                    correo
+                );
+
+            if (
+                key &&
+                indice
+                    .porIdentificador[
+                    key
+                ]
+            ) {
+                return indice
+                    .porIdentificador[
+                    key
+                ];
+            }
+        }
+
+        const nombres = [
+            asistencia.user,
+            asistencia.usuario,
+            asistencia.nombre,
+            asistencia.nombreUsuario,
+            asistencia.empleado
+        ];
+
+        for (
+            const posibleNombre of
+            nombres
+        ) {
+            const nombre =
+                normalizarNombre(
+                    posibleNombre
+                );
+
+            if (
+                nombre &&
+                indice
+                    .porNombre[
+                    nombre
+                ]
+            ) {
+                return indice
+                    .porNombre[
+                    nombre
+                ];
+            }
+        }
+
+        return null;
     }
 
     function calcularHorasAsistencia(
@@ -467,7 +777,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             jornadaStart.getTime()
         ) {
             jornadaEnd.setDate(
-                jornadaEnd.getDate() + 1
+                jornadaEnd.getDate() +
+                    1
             );
         }
 
@@ -485,7 +796,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                     )
                     : jornadaStart;
 
-        let realEnd = null;
+        let realEnd =
+            null;
 
         if (
             asistencia.salida &&
@@ -504,7 +816,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                 asistencia.entrada
             ) {
                 realEnd.setDate(
-                    realEnd.getDate() + 1
+                    realEnd.getDate() +
+                        1
                 );
             }
         } else if (
@@ -523,8 +836,11 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             return 0;
         }
 
-        let horasNorm = 0;
-        let horasExt = 0;
+        let horasNorm =
+            0;
+
+        let horasExt =
+            0;
 
         if (realEnd) {
             horasNorm =
@@ -535,20 +851,23 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                         jornadaEnd.getTime()
                     ) -
                         realStart.getTime()
-                ) / 3600000;
+                ) /
+                3600000;
 
             horasExt =
                 Math.max(
                     0,
                     realEnd.getTime() -
                         jornadaEnd.getTime()
-                ) / 3600000;
+                ) /
+                3600000;
         } else {
             const dur =
                 (
                     jornadaEnd.getTime() -
                     jornadaStart.getTime()
-                ) / 3600000;
+                ) /
+                3600000;
 
             horasNorm =
                 asistencia.consentidaEntrada ||
@@ -558,13 +877,12 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         }
 
         return Math.round(
-            (
-                Math.max(
-                    0,
-                    horasNorm +
-                        horasExt
-                )
-            ) * 100
+            Math.max(
+                0,
+                horasNorm +
+                    horasExt
+            ) *
+                100
         ) / 100;
     }
 
@@ -593,20 +911,60 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         ) / 100;
     }
 
+    function obtenerMontoPagadoVisual(
+        asistencia,
+        empleado,
+        jornada
+    ) {
+        if (
+            asistencia?.pagada !== true
+        ) {
+            return 0;
+        }
+
+        const almacenado =
+            Number(
+                asistencia.montoPagado
+            );
+
+        if (
+            Number.isFinite(
+                almacenado
+            ) &&
+            almacenado >= 0
+        ) {
+            return (
+                Math.round(
+                    almacenado * 100
+                ) / 100
+            );
+        }
+
+        return calcularMontoAsistencia(
+            asistencia,
+            empleado,
+            jornada
+        );
+    }
+
     async function cargarJornadas() {
         const tableEl =
             document.getElementById(
                 "jornadasTable"
             );
 
-        if (!tableEl) return;
+        if (!tableEl) {
+            return;
+        }
 
         const ready =
             await recheckContext(
                 "cargar jornadas"
             );
 
-        if (!ready) return;
+        if (!ready) {
+            return;
+        }
 
         limpiarDataTable(
             "#jornadasTable"
@@ -626,53 +984,60 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
 
             const rows = [];
 
-            snap.forEach(doc => {
-                const d =
-                    doc.data() || {};
+            snap.forEach(
+                doc => {
+                    const d =
+                        doc.data() ||
+                        {};
 
-                rows.push([
-                    escapeHtml(
-                        d.nombre || ""
-                    ),
+                    rows.push([
+                        escapeHtml(
+                            d.nombre || ""
+                        ),
 
-                    escapeHtml(
-                        d.horaEntrada ||
-                            ""
-                    ),
+                        escapeHtml(
+                            d.horaEntrada ||
+                                ""
+                        ),
 
-                    escapeHtml(
-                        d.horaSalida ||
-                            ""
-                    ),
+                        escapeHtml(
+                            d.horaSalida ||
+                                ""
+                        ),
 
-                    `
-                    <button
-                        type="button"
-                        class="btn-editar-jornada"
-                        data-id="${escapeHtml(doc.id)}"
-                        style="background-color:green;"
-                    >
-                        Editar
-                    </button>
+                        `
+                        <button
+                            type="button"
+                            class="btn-editar-jornada"
+                            data-id="${escapeHtml(doc.id)}"
+                            style="background-color:green;"
+                        >
+                            Editar
+                        </button>
 
-                    <button
-                        type="button"
-                        class="btn-eliminar-jornada"
-                        data-id="${escapeHtml(doc.id)}"
-                        style="background-color:red;"
-                    >
-                        Eliminar
-                    </button>
-                    `
-                ]);
-            });
+                        <button
+                            type="button"
+                            class="btn-eliminar-jornada"
+                            data-id="${escapeHtml(doc.id)}"
+                            style="background-color:red;"
+                        >
+                            Eliminar
+                        </button>
+                        `
+                    ]);
+                }
+            );
 
             if (tbl) {
                 tbl.clear();
 
-                rows.forEach(row => {
-                    tbl.row.add(row);
-                });
+                rows.forEach(
+                    row => {
+                        tbl.row.add(
+                            row
+                        );
+                    }
+                );
 
                 tbl.draw();
             } else {
@@ -693,13 +1058,17 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         }
     }
 
-    async function editarJornada(id) {
+    async function editarJornada(
+        id
+    ) {
         const ready =
             await recheckContext(
                 "editar jornada"
             );
 
-        if (!ready) return;
+        if (!ready) {
+            return;
+        }
 
         try {
             currentEditingJornadaId =
@@ -722,7 +1091,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             }
 
             const d =
-                doc.data() || {};
+                doc.data() ||
+                {};
 
             const nombreEl =
                 document.getElementById(
@@ -765,8 +1135,14 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         }
     }
 
-    async function eliminarJornada(id) {
-        if (!confirm("¿Eliminar jornada?")) {
+    async function eliminarJornada(
+        id
+    ) {
+        if (
+            !confirm(
+                "¿Eliminar jornada?"
+            )
+        ) {
             return;
         }
 
@@ -797,17 +1173,22 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                 "empleado-jornada"
             );
 
-        if (!sel) return;
+        if (!sel) {
+            return;
+        }
 
         const ready =
             await recheckContext(
                 "cargar jornadas en select"
             );
 
-        if (!ready) return;
+        if (!ready) {
+            return;
+        }
 
         try {
-            sel.innerHTML = "";
+            sel.innerHTML =
+                "";
 
             const snap =
                 await model.getJornadasByScope(
@@ -815,39 +1196,42 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                     window.adminSucursal
                 );
 
-            snap.forEach(doc => {
-                const d =
-                    doc.data() || {};
+            snap.forEach(
+                doc => {
+                    const d =
+                        doc.data() ||
+                        {};
 
-                const opt =
-                    document.createElement(
-                        "option"
+                    const opt =
+                        document.createElement(
+                            "option"
+                        );
+
+                    opt.value =
+                        doc.id;
+
+                    opt.textContent =
+                        `${d.nombre || ""} ` +
+                        `(${d.horaEntrada || "00:00"}-` +
+                        `${d.horaSalida || "00:00"})`;
+
+                    if (
+                        Array.isArray(
+                            selected
+                        ) &&
+                        selected.includes(
+                            doc.id
+                        )
+                    ) {
+                        opt.selected =
+                            true;
+                    }
+
+                    sel.appendChild(
+                        opt
                     );
-
-                opt.value =
-                    doc.id;
-
-                opt.textContent =
-                    `${d.nombre || ""} ` +
-                    `(${d.horaEntrada || "00:00"}-` +
-                    `${d.horaSalida || "00:00"})`;
-
-                if (
-                    Array.isArray(
-                        selected
-                    ) &&
-                    selected.includes(
-                        doc.id
-                    )
-                ) {
-                    opt.selected =
-                        true;
                 }
-
-                sel.appendChild(
-                    opt
-                );
-            });
+            );
         } catch (err) {
             console.error(
                 "Error cargando jornadas en select:",
@@ -892,28 +1276,32 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             );
 
         const accionesTh =
-            encabezados.find(th => {
-                const dataColumna =
-                    String(
-                        th.dataset?.columna ||
-                            ""
-                    )
-                        .trim()
-                        .toLowerCase();
+            encabezados.find(
+                th => {
+                    const dataColumna =
+                        String(
+                            th.dataset?.columna ||
+                                ""
+                        )
+                            .trim()
+                            .toLowerCase();
 
-                const texto =
-                    String(
-                        th.textContent || ""
-                    )
-                        .trim()
-                        .toLowerCase();
+                    const texto =
+                        String(
+                            th.textContent ||
+                                ""
+                        )
+                            .trim()
+                            .toLowerCase();
 
-                return (
-                    dataColumna ===
-                        "acciones" ||
-                    texto === "acciones"
-                );
-            });
+                    return (
+                        dataColumna ===
+                            "acciones" ||
+                        texto ===
+                            "acciones"
+                    );
+                }
+            );
 
         if (accionesTh) {
             headerRow.insertBefore(
@@ -938,14 +1326,18 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                 "asistenciasTable"
             );
 
-        if (!tableEl) return;
+        if (!tableEl) {
+            return;
+        }
 
         const ready =
             await recheckContext(
                 "cargar asistencias"
             );
 
-        if (!ready) return;
+        if (!ready) {
+            return;
+        }
 
         asegurarColumnaPagada(
             tableEl
@@ -961,10 +1353,14 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             );
 
         const start =
-            new Date(fechaInicio);
+            new Date(
+                fechaInicio
+            );
 
         const end =
-            new Date(fechaFin);
+            new Date(
+                fechaFin
+            );
 
         start.setHours(
             0,
@@ -981,37 +1377,90 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         );
 
         try {
+            /*
+             * -----------------------------------------------------
+             * JORNADAS
+             * -----------------------------------------------------
+             */
+
             const jornadasSnap =
                 await model.getJornadasByScope(
                     window.adminEmpresa,
                     window.adminSucursal
                 );
 
-            const jornadasMap = {};
+            const jornadasMap =
+                {};
 
-            jornadasSnap.forEach(doc => {
-                const d =
-                    doc.data() || {};
+            jornadasSnap.forEach(
+                doc => {
+                    const d =
+                        doc.data() ||
+                        {};
 
-                jornadasMap[
-                    doc.id
-                ] = {
-                    id:
-                        doc.id,
+                    jornadasMap[
+                        doc.id
+                    ] = {
+                        id:
+                            doc.id,
 
-                    nombre:
-                        d.nombre ||
-                        "",
+                        nombre:
+                            d.nombre ||
+                            "",
 
-                    horaEntrada:
-                        d.horaEntrada ||
-                        "00:00",
+                        horaEntrada:
+                            d.horaEntrada ||
+                            "00:00",
 
-                    horaSalida:
-                        d.horaSalida ||
-                        "00:00"
-                };
-            });
+                        horaSalida:
+                            d.horaSalida ||
+                            "00:00"
+                    };
+                }
+            );
+
+            /*
+             * -----------------------------------------------------
+             * EMPLEADOS
+             * -----------------------------------------------------
+             *
+             * Se cargan para poder calcular automáticamente
+             * el monto pagado de cada asistencia.
+             */
+
+            const empleadosSnap =
+                await model.getEmpleadosByScope(
+                    window.adminEmpresa,
+                    window.adminSucursal
+                );
+
+            const empleados =
+                {};
+
+            empleadosSnap.forEach(
+                doc => {
+                    empleados[
+                        doc.id
+                    ] = {
+                        id:
+                            doc.id,
+
+                        ...(doc.data() ||
+                            {})
+                    };
+                }
+            );
+
+            const indiceEmpleados =
+                construirIndiceEmpleados(
+                    empleados
+                );
+
+            /*
+             * -----------------------------------------------------
+             * ASISTENCIAS
+             * -----------------------------------------------------
+             */
 
             const asistSnap =
                 await model.getAsistenciasByScope(
@@ -1019,146 +1468,138 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                     window.adminSucursal
                 );
 
-            const rows = [];
+            const rows =
+                [];
 
-            asistSnap.forEach(doc => {
-                const d =
-                    doc.data() || {};
+            asistSnap.forEach(
+                doc => {
+                    const d =
+                        doc.data() ||
+                        {};
 
-                if (!d.fecha) {
-                    return;
-                }
-
-                const dt =
-                    new Date(
-                        `${d.fecha}T00:00:00`
-                    );
-
-                if (
-                    dt < start ||
-                    dt > end
-                ) {
-                    return;
-                }
-
-                const jornada =
-                    jornadasMap[
-                        d.jornadaId ||
-                            d.jornada ||
-                            d.jornadaDocId
-                    ] || {};
-
-                let acciones = `
-                    <button
-                        type="button"
-                        class="btn-eliminar-asistencia"
-                        data-id="${escapeHtml(doc.id)}"
-                        style="background-color:red;"
-                    >
-                        Eliminar
-                    </button>
-                `;
-
-                const [
-                    hEntRef,
-                    mEntRef
-                ] =
-                    String(
-                        jornada.horaEntrada ||
-                            "00:00"
-                    )
-                        .split(":")
-                        .map(Number);
-
-                const [
-                    hSalRef,
-                    mSalRef
-                ] =
-                    String(
-                        jornada.horaSalida ||
-                            "00:00"
-                    )
-                        .split(":")
-                        .map(Number);
-
-                if (
-                    d.entrada &&
-                    !d.consentidaEntrada
-                ) {
-                    const [
-                        h,
-                        m
-                    ] =
-                        String(
-                            d.entrada
-                        )
-                            .split(":")
-                            .map(Number);
-
-                    const esTarde =
-                        h >
-                            hEntRef ||
-                        (
-                            h ===
-                                hEntRef &&
-                            m >
-                                mEntRef
-                        );
-
-                    if (esTarde) {
-                        acciones += `
-                            <button
-                                type="button"
-                                class="btn-consentir-entrada"
-                                data-id="${escapeHtml(doc.id)}"
-                                style="background-color:orange;"
-                            >
-                                Consentir Entrada
-                            </button>
-                        `;
+                    if (!d.fecha) {
+                        return;
                     }
-                }
 
-                if (
-                    !d.salida &&
-                    !d.consentidaSalida
-                ) {
-                    acciones += `
-                        <button
-                            type="button"
-                            class="btn-consentir-salida"
-                            data-id="${escapeHtml(doc.id)}"
-                            style="background-color:orange;"
-                        >
-                            Consentir Salida
-                        </button>
-                    `;
-                } else if (
-                    d.salida &&
-                    !d.consentidaSalida
-                ) {
-                    const [
-                        hs,
-                        ms
-                    ] =
-                        String(
-                            d.salida
-                        )
-                            .split(":")
-                            .map(Number);
-
-                    const salTemprano =
-                        hs <
-                            hSalRef ||
-                        (
-                            hs ===
-                                hSalRef &&
-                            ms <
-                                mSalRef
+                    const dt =
+                        new Date(
+                            `${d.fecha}T00:00:00`
                         );
 
                     if (
-                        salTemprano
+                        dt < start ||
+                        dt > end
+                    ) {
+                        return;
+                    }
+
+                    const jornadaId =
+                        d.jornadaId ||
+                        d.jornada ||
+                        d.jornadaDocId ||
+                        "";
+
+                    const jornada =
+                        jornadasMap[
+                            jornadaId
+                        ] || {};
+
+                    const empleado =
+                        resolverEmpleadoAsistencia(
+                            d,
+                            indiceEmpleados
+                        );
+
+                    const montoAutomatico =
+                        calcularMontoAsistencia(
+                            d,
+                            empleado,
+                            jornada
+                        );
+
+                    const montoPagado =
+                        obtenerMontoPagadoVisual(
+                            d,
+                            empleado,
+                            jornada
+                        );
+
+                    let acciones = `
+                        <button
+                            type="button"
+                            class="btn-eliminar-asistencia"
+                            data-id="${escapeHtml(doc.id)}"
+                            style="background-color:red;"
+                        >
+                            Eliminar
+                        </button>
+                    `;
+
+                    const [
+                        hEntRef,
+                        mEntRef
+                    ] =
+                        String(
+                            jornada.horaEntrada ||
+                                "00:00"
+                        )
+                            .split(":")
+                            .map(Number);
+
+                    const [
+                        hSalRef,
+                        mSalRef
+                    ] =
+                        String(
+                            jornada.horaSalida ||
+                                "00:00"
+                        )
+                            .split(":")
+                            .map(Number);
+
+                    if (
+                        d.entrada &&
+                        !d.consentidaEntrada
+                    ) {
+                        const [
+                            h,
+                            m
+                        ] =
+                            String(
+                                d.entrada
+                            )
+                                .split(":")
+                                .map(Number);
+
+                        const esTarde =
+                            h >
+                                hEntRef ||
+                            (
+                                h ===
+                                    hEntRef &&
+                                m >
+                                    mEntRef
+                            );
+
+                        if (
+                            esTarde
+                        ) {
+                            acciones += `
+                                <button
+                                    type="button"
+                                    class="btn-consentir-entrada"
+                                    data-id="${escapeHtml(doc.id)}"
+                                    style="background-color:orange;"
+                                >
+                                    Consentir Entrada
+                                </button>
+                            `;
+                        }
+                    }
+
+                    if (
+                        !d.salida &&
+                        !d.consentidaSalida
                     ) {
                         acciones += `
                             <button
@@ -1170,72 +1611,158 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                                 Consentir Salida
                             </button>
                         `;
+                    } else if (
+                        d.salida &&
+                        !d.consentidaSalida
+                    ) {
+                        const [
+                            hs,
+                            ms
+                        ] =
+                            String(
+                                d.salida
+                            )
+                                .split(":")
+                                .map(Number);
+
+                        const salTemprano =
+                            hs <
+                                hSalRef ||
+                            (
+                                hs ===
+                                    hSalRef &&
+                                ms <
+                                    mSalRef
+                            );
+
+                        if (
+                            salTemprano
+                        ) {
+                            acciones += `
+                                <button
+                                    type="button"
+                                    class="btn-consentir-salida"
+                                    data-id="${escapeHtml(doc.id)}"
+                                    style="background-color:orange;"
+                                >
+                                    Consentir Salida
+                                </button>
+                            `;
+                        }
                     }
-                }
 
-                const pagada =
-                    d.pagada === true;
+                    const pagada =
+                        d.pagada === true;
 
-                const pagadaHtml = `
-                    <label
-                        style="
-                            display:flex;
-                            align-items:center;
-                            gap:6px;
-                            cursor:pointer;
-                            white-space:nowrap;
-                        "
-                    >
-                        <input
-                            type="checkbox"
-                            class="chk-pagada-asistencia"
-                            data-id="${escapeHtml(doc.id)}"
-                            ${pagada ? "checked" : ""}
+                    const montoInicial =
+                        pagada
+                            ? montoPagado
+                            : 0;
+
+                    const pagadaHtml = `
+                        <div
+                            style="
+                                display:flex;
+                                align-items:center;
+                                gap:8px;
+                                justify-content:center;
+                                flex-wrap:wrap;
+                            "
                         >
+                            <label
+                                style="
+                                    display:flex;
+                                    align-items:center;
+                                    gap:5px;
+                                    cursor:pointer;
+                                    white-space:nowrap;
+                                "
+                            >
+                                <input
+                                    type="checkbox"
+                                    class="chk-pagada-asistencia"
+                                    data-id="${escapeHtml(doc.id)}"
+                                    ${pagada ? "checked" : ""}
+                                >
 
-                        <span>
-                            ${pagada ? "Sí" : "No"}
-                        </span>
-                    </label>
-                `;
+                                <span>
+                                    ${pagada ? "Sí" : "No"}
+                                </span>
+                            </label>
 
-                rows.push([
-                    escapeHtml(
-                        d.user || ""
-                    ),
+                            <input
+                                type="number"
+                                class="input-monto-pagado-asistencia"
+                                data-id="${escapeHtml(doc.id)}"
+                                data-auto-monto="${montoAutomatico.toFixed(2)}"
+                                value="${montoInicial.toFixed(2)}"
+                                min="0"
+                                step="0.01"
+                                inputmode="decimal"
+                                ${!pagada ? "disabled" : ""}
+                                title="Monto realmente pagado por esta asistencia."
+                                style="
+                                    width:90px;
+                                    min-width:90px;
+                                    max-width:100px;
+                                    box-sizing:border-box;
+                                    padding:5px;
+                                    text-align:center;
+                                "
+                            >
+                        </div>
+                    `;
 
-                    escapeHtml(
-                        d.fecha || ""
-                    ),
+                    rows.push([
+                        escapeHtml(
+                            d.user ||
+                                d.usuario ||
+                                empleado?.nombre ||
+                                ""
+                        ),
 
-                    escapeHtml(
-                        d.status || ""
-                    ),
+                        escapeHtml(
+                            d.fecha ||
+                                ""
+                        ),
 
-                    escapeHtml(
-                        d.entrada || ""
-                    ),
+                        escapeHtml(
+                            d.status ||
+                                ""
+                        ),
 
-                    escapeHtml(
-                        d.salida || ""
-                    ),
+                        escapeHtml(
+                            d.entrada ||
+                                ""
+                        ),
 
-                    escapeHtml(
-                        d.justificacion || ""
-                    ),
+                        escapeHtml(
+                            d.salida ||
+                                ""
+                        ),
 
-                    pagadaHtml,
+                        escapeHtml(
+                            d.justificacion ||
+                                ""
+                        ),
 
-                    acciones
-                ]);
-            });
+                        pagadaHtml,
+
+                        acciones
+                    ]);
+                }
+            );
 
             if (tbl) {
                 tbl.clear();
 
-                rows.forEach(row => {
-                    tbl.row.add(row);
-                });
+                rows.forEach(
+                    row => {
+                        tbl.row.add(
+                            row
+                        );
+                    }
+                );
 
                 tbl.draw();
             } else {
@@ -1258,7 +1785,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
 
     async function cambiarEstadoPagoAsistencia(
         id,
-        marcada
+        marcada,
+        montoPagado = 0
     ) {
         try {
             const ready =
@@ -1266,11 +1794,34 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                     "actualizar estado de pago"
                 );
 
-            if (!ready) return;
+            if (!ready) {
+                return;
+            }
 
             if (marcada) {
+                const monto =
+                    Number(
+                        montoPagado
+                    );
+
+                if (
+                    !Number.isFinite(
+                        monto
+                    ) ||
+                    monto < 0
+                ) {
+                    alert(
+                        "El monto pagado no es válido."
+                    );
+
+                    return;
+                }
+
                 await model.marcarAsistenciaPagada(
-                    id
+                    id,
+                    Math.round(
+                        monto * 100
+                    ) / 100
                 );
             } else {
                 const confirmar =
@@ -1341,6 +1892,104 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
         }
     }
 
+    async function guardarMontoPagadoAsistencia(
+        input
+    ) {
+        if (!input) {
+            return;
+        }
+
+        const id =
+            String(
+                input.dataset.id ||
+                    ""
+            ).trim();
+
+        if (!id) {
+            return;
+        }
+
+        const raw =
+            String(
+                input.value ?? ""
+            ).trim();
+
+        const numero =
+            Number(
+                raw.replace(
+                    ",",
+                    "."
+                )
+            );
+
+        if (
+            !Number.isFinite(
+                numero
+            ) ||
+            numero < 0
+        ) {
+            alert(
+                "El monto pagado debe ser un número mayor o igual a cero."
+            );
+
+            input.value =
+                input.dataset.previousValue ||
+                input.dataset.autoMonto ||
+                "0.00";
+
+            return;
+        }
+
+        const monto =
+            Math.round(
+                numero * 100
+            ) / 100;
+
+        input.disabled =
+            true;
+
+        try {
+            const ready =
+                await recheckContext(
+                    "actualizar monto pagado"
+                );
+
+            if (!ready) {
+                return;
+            }
+
+            await model.actualizarMontoPagadoAsistencia(
+                id,
+                monto
+            );
+
+            input.value =
+                monto.toFixed(
+                    2
+                );
+
+            input.dataset.previousValue =
+                input.value;
+        } catch (err) {
+            console.error(
+                "Error actualizando monto pagado:",
+                err
+            );
+
+            alert(
+                err.message ||
+                    "No se pudo actualizar el monto pagado."
+            );
+
+            input.value =
+                input.dataset.previousValue ||
+                "0.00";
+        } finally {
+            input.disabled =
+                false;
+        }
+    }
+
     async function consentirSinEntrada(
         id
     ) {
@@ -1348,7 +1997,9 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             await model.updateAsistencia(
                 id,
                 {
-                    entrada: "Consentida",
+                    entrada:
+                        "Consentida",
+
                     consentidaEntrada:
                         true
                 }
@@ -1393,7 +2044,9 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             await model.updateAsistencia(
                 id,
                 {
-                    salida: "Consentida",
+                    salida:
+                        "Consentida",
+
                     consentidaSalida:
                         true
                 }
@@ -1434,7 +2087,11 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
     async function eliminarAsistencia(
         id
     ) {
-        if (!confirm("¿Eliminar asistencia?")) {
+        if (
+            !confirm(
+                "¿Eliminar asistencia?"
+            )
+        ) {
             return;
         }
 
@@ -1489,7 +2146,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             return;
         }
 
-        form.dataset.bound = "1";
+        form.dataset.bound =
+            "1";
 
         form.addEventListener(
             "submit",
@@ -1501,7 +2159,9 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                         "guardar jornada"
                     );
 
-                if (!ready) return;
+                if (!ready) {
+                    return;
+                }
 
                 try {
                     const nombreEl =
@@ -1604,7 +2264,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
             return;
         }
 
-        btn.dataset.bound = "1";
+        btn.dataset.bound =
+            "1";
 
         btn.addEventListener(
             "click",
@@ -1732,14 +2393,151 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                             ".chk-pagada-asistencia"
                         );
 
-                    if (!checkbox) {
+                    if (checkbox) {
+                        const tr =
+                            checkbox.closest(
+                                "tr"
+                            );
+
+                        const montoInput =
+                            tr
+                                ? tr.querySelector(
+                                      ".input-monto-pagado-asistencia"
+                                  )
+                                : null;
+
+                        let monto =
+                            0;
+
+                        if (
+                            montoInput
+                        ) {
+                            if (
+                                checkbox.checked
+                            ) {
+                                const automatico =
+                                    toNumber(
+                                        montoInput.dataset.autoMonto,
+                                        0
+                                    );
+
+                                const actual =
+                                    Number(
+                                        String(
+                                            montoInput.value ||
+                                                ""
+                                        ).replace(
+                                            ",",
+                                            "."
+                                        )
+                                    );
+
+                                monto =
+                                    Number.isFinite(
+                                        actual
+                                    ) &&
+                                    actual >=
+                                        0
+                                        ? actual
+                                        : automatico;
+
+                                montoInput.value =
+                                    (
+                                        Math.round(
+                                            monto *
+                                                100
+                                        ) / 100
+                                    ).toFixed(
+                                        2
+                                    );
+
+                                montoInput.disabled =
+                                    true;
+                            } else {
+                                montoInput.value =
+                                    "0.00";
+
+                                montoInput.disabled =
+                                    true;
+                            }
+                        }
+
+                        return cambiarEstadoPagoAsistencia(
+                            checkbox.dataset.id,
+                            checkbox.checked,
+                            monto
+                        );
+                    }
+
+                    const montoInput =
+                        e.target.closest(
+                            ".input-monto-pagado-asistencia"
+                        );
+
+                    if (montoInput) {
+                        return guardarMontoPagadoAsistencia(
+                            montoInput
+                        );
+                    }
+                }
+            );
+
+            asistenciasTable.addEventListener(
+                "focusin",
+                e => {
+                    const input =
+                        e.target.closest(
+                            ".input-monto-pagado-asistencia"
+                        );
+
+                    if (!input) {
                         return;
                     }
 
-                    cambiarEstadoPagoAsistencia(
-                        checkbox.dataset.id,
-                        checkbox.checked
-                    );
+                    input.dataset.previousValue =
+                        input.value;
+                }
+            );
+
+            asistenciasTable.addEventListener(
+                "keydown",
+                e => {
+                    const input =
+                        e.target.closest(
+                            ".input-monto-pagado-asistencia"
+                        );
+
+                    if (!input) {
+                        return;
+                    }
+
+                    if (
+                        e.key ===
+                        "Enter"
+                    ) {
+                        e.preventDefault();
+
+                        input.blur();
+                    }
+
+                    if (
+                        e.key ===
+                        "Escape"
+                    ) {
+                        e.preventDefault();
+
+                        if (
+                            input.dataset
+                                .previousValue !==
+                            undefined
+                        ) {
+                            input.value =
+                                input.dataset
+                                    .previousValue;
+                        }
+
+                        input.blur();
+                    }
                 }
             );
         }
@@ -1766,7 +2564,8 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
                         "function"
                     ) {
                         window.logout({
-                            redirect: true
+                            redirect:
+                                true
                         });
                     } else {
                         window.location.href =
@@ -1808,14 +2607,19 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
 
     async function initPage() {
         bindNavigation();
+
         bindJornadaForm();
+
         bindFiltroAsistencias();
+
         bindTableEvents();
 
         const ready =
             await waitForAdminReady();
 
-        if (!ready) return;
+        if (!ready) {
+            return;
+        }
 
         const semana =
             getWeekRange();
@@ -1902,6 +2706,9 @@ import AdminAsistenciasJornadasModel from "../models/admin.asistencias_jornadas.
 
     window.cambiarEstadoPagoAsistencia =
         cambiarEstadoPagoAsistencia;
+
+    window.guardarMontoPagadoAsistencia =
+        guardarMontoPagadoAsistencia;
 
     document.addEventListener(
         "DOMContentLoaded",

@@ -34,10 +34,11 @@ export default class AdminAsistenciasJornadasModel {
     async getJornadaById(id) {
         if (!id) return null;
 
-        const doc = await this.db
-            .collection("jornadas")
-            .doc(String(id))
-            .get();
+        const doc =
+            await this.db
+                .collection("jornadas")
+                .doc(String(id))
+                .get();
 
         return doc.exists ? doc : null;
     }
@@ -56,9 +57,10 @@ export default class AdminAsistenciasJornadasModel {
             return id;
         }
 
-        const ref = await this.db
-            .collection("jornadas")
-            .add(data);
+        const ref =
+            await this.db
+                .collection("jornadas")
+                .add(data);
 
         return ref.id;
     }
@@ -76,8 +78,12 @@ export default class AdminAsistenciasJornadasModel {
             .delete();
     }
 
-    async getAsistenciasByScope(empresa = "", sucursal = "") {
-        let query = this.db.collection("asistencias");
+    async getAsistenciasByScope(
+        empresa = "",
+        sucursal = ""
+    ) {
+        let query =
+            this.db.collection("asistencias");
 
         if (empresa) {
             query = query.where(
@@ -101,18 +107,27 @@ export default class AdminAsistenciasJornadasModel {
     async getAsistenciaById(id) {
         if (!id) return null;
 
-        const doc = await this.db
-            .collection("asistencias")
-            .doc(String(id))
-            .get();
+        const doc =
+            await this.db
+                .collection("asistencias")
+                .doc(String(id))
+                .get();
 
         return doc.exists ? doc : null;
     }
 
-    async getEmpleadosByScope(empresa = "", sucursal = "") {
-        let query = this.db
-            .collection("usuarios")
-            .where("role", "==", "empleado");
+    async getEmpleadosByScope(
+        empresa = "",
+        sucursal = ""
+    ) {
+        let query =
+            this.db
+                .collection("usuarios")
+                .where(
+                    "role",
+                    "==",
+                    "empleado"
+                );
 
         if (empresa) {
             query = query.where(
@@ -136,10 +151,11 @@ export default class AdminAsistenciasJornadasModel {
     async getEmpleadoById(id) {
         if (!id) return null;
 
-        const doc = await this.db
-            .collection("usuarios")
-            .doc(String(id))
-            .get();
+        const doc =
+            await this.db
+                .collection("usuarios")
+                .doc(String(id))
+                .get();
 
         return doc.exists ? doc : null;
     }
@@ -157,7 +173,10 @@ export default class AdminAsistenciasJornadasModel {
             .delete();
     }
 
-    async updateAsistencia(id, data) {
+    async updateAsistencia(
+        id,
+        data
+    ) {
         if (!id) {
             throw new Error(
                 "ID requerido para actualizar asistencia."
@@ -170,10 +189,33 @@ export default class AdminAsistenciasJornadasModel {
             .update(data);
     }
 
-    async marcarAsistenciaPagada(id) {
+    /*
+     * ---------------------------------------------------------
+     * MARCAR ASISTENCIA COMO PAGADA
+     * ---------------------------------------------------------
+     *
+     * Además de pagada=true, se guarda el monto real pagado.
+     */
+
+    async marcarAsistenciaPagada(
+        id,
+        montoPagado = 0
+    ) {
         if (!id) {
             throw new Error(
                 "ID requerido para marcar la asistencia."
+            );
+        }
+
+        const monto =
+            Number(montoPagado);
+
+        if (
+            !Number.isFinite(monto) ||
+            monto < 0
+        ) {
+            throw new Error(
+                "El monto pagado debe ser un número mayor o igual a cero."
             );
         }
 
@@ -181,11 +223,65 @@ export default class AdminAsistenciasJornadasModel {
             .collection("asistencias")
             .doc(String(id))
             .update({
-                pagada: true
+                pagada: true,
+
+                montoPagado:
+                    Math.round(
+                        monto * 100
+                    ) / 100
             });
     }
 
-    async desmarcarAsistenciaPagada(id) {
+    /*
+     * ---------------------------------------------------------
+     * ACTUALIZAR MONTO PAGADO
+     * ---------------------------------------------------------
+     */
+
+    async actualizarMontoPagadoAsistencia(
+        id,
+        montoPagado = 0
+    ) {
+        if (!id) {
+            throw new Error(
+                "ID requerido para actualizar el monto pagado."
+            );
+        }
+
+        const monto =
+            Number(montoPagado);
+
+        if (
+            !Number.isFinite(monto) ||
+            monto < 0
+        ) {
+            throw new Error(
+                "El monto pagado debe ser un número mayor o igual a cero."
+            );
+        }
+
+        await this.db
+            .collection("asistencias")
+            .doc(String(id))
+            .update({
+                montoPagado:
+                    Math.round(
+                        monto * 100
+                    ) / 100
+            });
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * DESMARCAR ASISTENCIA COMO PAGADA
+     * ---------------------------------------------------------
+     *
+     * Al quitar "Pagada", el monto se restablece a cero.
+     */
+
+    async desmarcarAsistenciaPagada(
+        id
+    ) {
         if (!id) {
             throw new Error(
                 "ID requerido para desmarcar la asistencia."
@@ -196,18 +292,28 @@ export default class AdminAsistenciasJornadasModel {
             .collection("asistencias")
             .doc(String(id))
             .update({
-                pagada: false
+                pagada: false,
+                montoPagado: 0
             });
     }
 
-    async getJornadasByIds(ids = []) {
-        const clean = Array.isArray(ids)
-            ? ids
-                  .map(v => String(v || "").trim())
-                  .filter(Boolean)
-            : [];
+    async getJornadasByIds(
+        ids = []
+    ) {
+        const clean =
+            Array.isArray(ids)
+                ? ids
+                      .map(v =>
+                          String(
+                              v || ""
+                          ).trim()
+                      )
+                      .filter(Boolean)
+                : [];
 
-        if (!clean.length) return [];
+        if (!clean.length) {
+            return [];
+        }
 
         return await Promise.all(
             clean.map(id =>
